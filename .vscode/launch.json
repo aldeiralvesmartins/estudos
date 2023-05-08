@@ -1,3 +1,66 @@
+namespace App\Http\Controllers;
+
+use App\Bo\PersonBo;
+use Illuminate\Http\Request;
+
+class PersonController extends Controller
+{
+    private $personBo;
+
+    public function __construct()
+    {
+        $this->personBo = new PersonBo();
+    }
+
+    public function index()
+    {
+        $people = $this->personBo->getAll();
+        return view('person.index', compact('people'));
+    }
+
+    public function create()
+    {
+        return view('person.create');
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->all();
+        $this->personBo->save($data);
+        return redirect()->route('person.index')->with('success', 'Person created successfully!');
+    }
+
+    public function show($id)
+    {
+        $person = $this->personBo->getById($id);
+        return view('person.show', compact('person'));
+    }
+
+    public function edit($id)
+    {
+        $person = $this->personBo->getById($id);
+        return view('person.edit', compact('person'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $data = $request->all();
+        $this->personBo->update($data, $id);
+        return redirect()->route('person.index')->with('success', 'Person updated successfully!');
+    }
+
+    public function destroy($id)
+    {
+        $this->personBo->delete($id);
+        return redirect()->route('person.index')->with('success', 'Person deleted successfully!');
+    }
+}
+
+
+
+
+
+
 namespace App\Bo;
 
 use App\Dao\PersonDao;
