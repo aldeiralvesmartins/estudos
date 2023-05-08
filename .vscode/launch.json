@@ -1,3 +1,22 @@
+use App\Http\Controllers\PersonController;
+
+Route::get('/persons', [PersonController::class, 'index'])->name('person.index');
+Route::get('/persons/create', [PersonController::class, 'create'])->name('person.create');
+Route::post('/persons', [PersonController::class, 'store'])->name('person.store');
+Route::get('/persons/{id}', [PersonController::class, 'show'])->name('person.show');
+Route::get('/persons/{id}/edit', [PersonController::class, 'edit'])->name('person.edit');
+Route::put('/persons/{id}', [PersonController::class, 'update'])->name('person.update');
+Route::delete('/persons/{id}', [PersonController::class, 'destroy'])->name('person.destroy');
+
+
+
+
+
+
+
+
+
+
 namespace App\Http\Controllers;
 
 use App\Bo\PersonBo;
