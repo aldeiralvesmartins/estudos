@@ -1,3 +1,65 @@
+<?php
+
+namespace App\Dao;
+
+use Illuminate\Support\Facades\DB;
+use App\Models\Person;
+
+class PersonDao
+{
+    public function getAll()
+    {
+        try {
+            return DB::table('person')->get();
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
+    public function getById($id)
+    {
+        try {
+            return DB::table('person')->where('id', $id)->first();
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
+    public function save(Person $person)
+    {
+        try {
+            $data = $person->toArray();
+            unset($data['id']);
+            return DB::table('person')->insertGetId($data);
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
+    public function update(Person $person)
+    {
+        try {
+            $data = $person->toArray();
+            unset($data['id']);
+            return DB::table('person')->where('id', $person->id)->update($data);
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
+    public function delete($id)
+    {
+        try {
+            return DB::table('person')->where('id', $id)->delete();
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+}
+
+
+
+
 use Illuminate\Database\Seeder;
 use App\Models\Person;
 
