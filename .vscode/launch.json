@@ -1,3 +1,50 @@
+use Illuminate\Database\Seeder;
+use App\Models\Person;
+
+class PersonSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
+    public function run()
+    {
+        $person = new Person();
+        $person->name = 'John Doe';
+        $person->birth_date = '1990-01-01';
+        $person->cpf = '12345678901';
+        $person->number_rg = '1234567';
+        $person->date_emission_rg = '2010-01-01';
+        $person->organ_issuer_rg_id = 1;
+        $person->state_organ_issuer_rg_id = 1;
+        $person->naturalness_id = 1;
+        $person->schooling_id = 1;
+        $person->sex = 'masculino';
+        $person->marital_status_id = 1;
+        $person->date_marriage = '2020-01-01';
+        $person->spouse_absent = 'nao';
+        $person->partner_residing_together = 'sim';
+        $person->illness_chronicle = 'nao';
+        $person->person_deficient = 'nao';
+        $person->recipient_Software_social = 'sim';
+        $person->profession = 'Engenheiro';
+        $person->situation_marketplace_work_id = 1;
+        $person->name_mother = 'Maria Silva';
+        $person->name_father = 'João Silva';
+        $person->observation = 'Observação do João Doe';
+        $person->save();
+    }
+}
+
+
+
+
+
+
+
+
+
 <?php
 
 namespace App\Models;
