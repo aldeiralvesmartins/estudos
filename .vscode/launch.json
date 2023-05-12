@@ -1,3 +1,48 @@
+
+
+<div id="content-new-pessoa"></div>
+
+<button type="button" id="btn-add-people">+ Dependentes</button>
+<br>
+
+<script>
+var indexPerson = 2
+
+document.getElementById('btn-add-people').addEventListener('click', () => {
+  const newElement = document.createElement("div");
+  newElement.innerHTML =  `
+    <input type="text" name="pessoas[${indexPerson}][name]">
+    <input type="text" name="pessoas[${indexPerson}][idade]">
+    <input type="text" name="pessoas[${indexPerson}][email]">
+    <input hidden value="false" name="pessoas[${indexPerson}][is_pricipal]">
+  `;
+  document.getElementById('content-new-pessoa').appendChild(newElement);
+  indexPerson++;
+});
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 msr88957@gmail.com
 98653274
 r2147258369R*
