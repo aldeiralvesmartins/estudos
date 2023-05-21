@@ -1,3 +1,83 @@
+// Example Form
+$("#example-form").steps({
+	headerTag: "h3",
+	bodyTag: "section",
+	transitionEffect: "slideLeft",
+	// autoFocus: true,
+});
+
+
+$(document).ready(function() {
+    $("#mainMaritalStatusId").on("change", function() {
+        const valorSelecionado = $(this).val();
+        console.log("Opção selecionada: " + valorSelecionado);
+    });
+
+    var proxButton = $("a[href='#next']");
+
+
+    proxButton.on("click", function() {
+        const elementSelectCivilState = $("#mainMaritalStatusId");
+        var objetojQuery = $("div#example-form.wizard.clearfix");
+        let configSteps = {}
+        for(let item in objetojQuery[0]){
+            configSteps = objetojQuery[0][item]
+            break
+        }
+
+        //Salva dados da pessoa principal
+        if(configSteps.state.currentIndex === 1){
+            let formMain = document.getElementById("formMain")
+            var formData = new FormData(formMain);
+            var object = {};
+        
+            for (var entry of formData.entries()) {
+                object[entry[0]] = entry[1];
+            }
+
+            console.log(object)
+            console.dir(formMain)
+
+        }
+
+        if (elementSelectCivilState[0].dataset.type === 'main' &&
+            configSteps.state.currentIndex === 1 &&
+            elementSelectCivilState.val() === '6')
+        {
+            $("#example-form").steps("next", 1);
+        }
+    });
+
+    var retornaButton = $("a[href='#previous']");
+
+    retornaButton.on("click", function({target}) {
+
+        var objetojQuery = $("div#example-form.wizard.clearfix");
+        let configSteps = {}
+        for(let item in objetojQuery[0]){
+            configSteps = objetojQuery[0][item]
+            break
+        }
+
+
+        const elementSelectCivilState = $("#mainMaritalStatusId");
+        if (elementSelectCivilState[0].dataset.type === 'main' &&
+            configSteps.state.currentIndex === 1 &&
+            elementSelectCivilState.val() === '6') {
+            $("#example-form").steps("previous", -1);
+        }
+    });
+});
+
+
+
+
+
+
+
+
+
+
 
 
 <div id="content-new-pessoa"></div>
