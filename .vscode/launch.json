@@ -1,3 +1,93 @@
+{
+  "person": {
+    "main": {
+      "name": "Eduardo Santos",
+      "taxpayer": "13556743764",
+      "birthdate": "1990-01-01",
+      "rg_number": "8744315232",
+      "dispatcher_agency_id": 1,
+      "expedition_date_rg": "1990-01-01",
+      "observation": "Observation",
+      "name_mother": "Jane Doe",
+      "name_father": "John Doe Sr.",
+      "naturalness": "City",
+      "nationality_id": 1,
+      "gender": "Masculino",
+      "schooling_id": 1,
+      "marital_status_id": 1,
+      "profession_id": 1,
+      "work_status_id": 1,
+      "has_social_benefits": true,
+      "has_deficiencies": false,
+      "has_chronic_diseases": false,
+      "has_absent_partner": false,
+      "is_family_chief": true,
+      "has_protective_measure": true
+    },
+    "spouse": {
+      "name": "Fernanda Lima",
+      "taxpayer": "87433946552",
+      "birthdate": "1992-02-02",
+      "rg_number": "23455334174",
+      "dispatcher_agency_id": 1,
+      "expedition_date_rg": "1990-01-01",
+      "observation": "Observation",
+      "name_mother": "Jane Doe",
+      "name_father": "John Doe Sr.",
+      "naturalness": "City",
+      "nationality_id": 1,
+      "gender": "Feminino",
+      "schooling_id": 1,
+      "marital_status_id": 1,
+      "profession_id": 1,
+      "work_status_id": 1,
+      "has_social_benefits": false,
+      "has_deficiencies": false,
+      "has_chronic_diseases": false,
+      "has_absent_partner": false,
+      "is_family_chief": false,
+      "has_protective_measure": false
+    },
+    "adddresses": {
+      "cep": "12345678",
+      "street": "Rua Exemplo",
+      "number": "123",
+      "complement": "Apartamento 4",
+      "neighborhood_id": "8h3V2i",
+      "informal_urban_core_id": 1,
+      "observation": "Observação do endereço"
+    },
+    "informal_urban_core": {
+      "informal_core": "Núcleo Informal 1",
+      "neighborhood_id": "8h3V2i"
+    },
+      "properties": {
+      "reference_point": "Referência 1",
+      "block": "Bloco A",
+      "lote": "Lote 123",
+      "area": 100.5,
+      "number_of_buildings": 2
+    },
+    "residents": {
+      "kinship_id": 2
+    },
+    "people_cid10": {
+        "cid10_id": 9
+    }
+
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
 // Example Form
 $("#example-form").steps({
 	headerTag: "h3",
