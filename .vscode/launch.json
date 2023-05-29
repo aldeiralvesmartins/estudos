@@ -1,3 +1,74 @@
+ public function store(PersonRequest $request)
+    {
+
+        $data = $request->all();
+        DB::beginTransaction();
+        try {
+       $peopleMain = $this->personBO->insertPerson($data['person']['main']);
+
+        if (!empty($data['person']['people_cid10'])) {
+            $peopleMain->peopleCid10()->createMany([
+                $data['person']['people_cid10']
+            ]);
+        }
+
+        if(!empty($data['person']['spouse'])){
+            $personSpouse = $this->personBO->insertPerson($data['person']['spouse']);
+
+            $personSpouseData['married_date'] = $data['married_date'] ?? '2023-10-12';
+
+            $peopleMain->spouse()->create([
+                'person_id' => $peopleMain->id,
+                'spouse_people_id' =>  $personSpouse->id ?? 17,
+                'married_date' =>  $personSpouseData['married_date'] ?? '2023-10-12',
+            ]);
+
+            if (!empty($data['person']['people_cid10'])) {
+                $personSpouse->peopleCid10()->createMany([
+                    $data['person']['people_cid10']
+                ]);
+            }
+        }
+
+        if(!empty($data['person']['adddresses'])){
+
+            if(!empty($data['person']['informal_urban_core'])){
+
+                $informalUrbanCore = new InformalUrbanCoreBo();
+                $informalUrbanCore->store([
+                    'informal_core' => $data['person']['informal_urban_core']['informal_core'],
+                    'neighborhood_id' => $data['person']['informal_urban_core']['neighborhood_id']
+                ]);
+                $data['person']['adddresses']['informal_urban_core_id'] = $informalUrbanCore->id;
+                $address = $informalUrbanCore->addresses()->create($data['person']['addresses']);
+
+                #Adiciona o endereço na pessoa principal
+                $peopleMain->address_id = $address->id;
+                $peopleMain->save();
+
+                $personSpouse->address_id = $address->id;
+                $personSpouse->save();
+                $data['person']['properties']['person_id'] = $peopleMain->id;
+                $data['person']['properties']['address_id'] = $address->id;
+
+                $peopleMain->property()->create($data['person']['properties']['person_id']);
+            }
+        }
+
+        if (!empty($data['person']['residents'])) {
+            $data['person']['residents']['person_id'] = $peopleMain->id;
+            $data['person']['residents']['resident_id'] = $personSpouse->id;
+            $peopleMain->resident()->createMany($data['person']['residents']);
+        }
+            DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            throw $e;
+        }
+        return response()->json(['message' => 'Person created successfully'], 201);
+    }
+
 {
   "person": {
     "main": {
