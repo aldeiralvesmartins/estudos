@@ -1,4 +1,51 @@
- public function store(PersonRequest $request)
+<?php
+
+namespace App\Bo;
+
+use App\Models\Core\PeopleCid10;
+
+class PeopleCId10Bo
+{
+    public function __construct()
+    {
+        parent::__construct(new PeopleCid10());
+    }
+
+    public function insertPerson($data)
+    {
+        return $this->person->store($data);
+    }
+
+
+}
+
+
+<?php
+
+namespace App\Bo;
+
+
+use App\Models\Social\InformalUrbanCore;
+use App\Repositories\BaseRepository;
+
+class InformalUrbanCoreBo extends BaseRepository
+{
+    public function __construct()
+    {
+        parent::__construct(new InformalUrbanCore());
+    }
+
+    public function store($request): InformalUrbanCore
+    {
+        return parent::store($request);
+    }
+
+
+
+}
+
+
+public function store(PersonRequest $request)
     {
 
         $data = $request->all();
