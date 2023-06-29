@@ -1,4 +1,49 @@
-    <?php
+$ips = array(
+    '192.168.0.1',
+    '192.168.0.2',
+    '192.168.0.3'
+);
+
+$url = 'https://www.exemplo.com'; // URL do site que deseja acessar
+
+// Seleciona um IP aleatório do array
+$randomIP = $ips[array_rand($ips)];
+
+// Configura as opções do cURL
+$options = array(
+    CURLOPT_URL => $url,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => array(
+        'X-Forwarded-For: ' . $randomIP,
+        'Client-IP: ' . $randomIP
+    )
+);
+
+// Inicializa o cURL
+$curl = curl_init();
+curl_setopt_array($curl, $options);
+
+// Executa a requisição
+$response = curl_exec($curl);
+
+// Verifica a resposta do servidor
+if ($response === false) {
+    echo 'Falha ao simular acesso ao site.';
+} else {
+    echo 'Acesso ao site simulado com sucesso.';
+}
+
+// Fecha o cURL
+curl_close($curl);
+
+
+
+
+
+
+
+
+<?php
     $url = 'https://animelandiabr.com.br'; // URL do site que deseja simular o acesso
 
     // Envia uma solicitação GET para a URL
