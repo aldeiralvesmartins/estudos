@@ -1,3 +1,29 @@
+    <?php
+    $url = 'https://animelandiabr.com.br'; // URL do site que deseja simular o acesso
+
+    // Envia uma solicitação GET para a URL
+    for ($i = 0; $i < 1000; $i++) {
+        $response = file_get_contents($url);
+    }
+    // Verifica a resposta do servidor
+    if ($response === false) {
+        echo 'Falha ao simular acesso ao site.';
+    } else {
+        echo 'Acesso ao site simulado com sucesso.';
+    }
+    ?>
+
+
+
+
+
+
+
+
+
+
+
+
 https://github.com/Bekzodbekxon/form-wizard.git
 <?php
 
