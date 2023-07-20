@@ -46,7 +46,7 @@
 
 ## Sobre o Projeto
 
-[![Product Name Screen Shot][product-screenshot]](file:///home/usuario07/Imagens/Captura%20de%20tela%20de%202023-07-19%2016-56-48.png)
+[![Product Name Screen Shot][product-screenshot]](pagina.png)
 
 Este projeto é um software para gestão de disponibilidade de lotes e controle de reservas. Ele foi desenvolvido para
 auxiliar no gerenciamento de disponibilidade de produtos ou lotes em um sistema, bem como o controle e expiração de
