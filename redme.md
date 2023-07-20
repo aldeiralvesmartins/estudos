@@ -40,8 +40,7 @@
     <li><a href="#contribuindo">Contribuindo</a></li>
     <li><a href="#contato">Contato</a></li>
   </ol>
-</details>
-
+</details
 
 
 <!-- ABOUT THE PROJECT -->
@@ -49,6 +48,10 @@
 ## Sobre o Projeto
 
 [![Product Name Screen Shot][product-screenshot]](pagina.png)
+
+
+<p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
+
 
 # Bem-vindo ao R2 Disponibilidade - Sistema Completo para Gerenciamento de Loteamentos e Lotes!
 
@@ -75,10 +78,6 @@ A seção de Reservas lista todos os lotes atualmente reservados, permitindo a r
 Com o R2 Disponibilidade, você pode gerenciar o cadastro de clientes, corretores e outras partes interessadas de forma simples e rápida. Adicione, edite ou exclua registros, mantendo sempre os dados atualizados e organizados.
 
 Desfrute da eficiência e praticidade da nossa plataforma para otimizar o gerenciamento de loteamentos, lotes, reservas e pessoas em seus projetos imobiliários. Conte com nosso apoio em cada passo do caminho para o sucesso!
-
-
-
-<p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
 ## Construído Com
