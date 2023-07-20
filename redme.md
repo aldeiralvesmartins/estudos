@@ -50,9 +50,32 @@
 
 [![Product Name Screen Shot][product-screenshot]](pagina.png)
 
-Este projeto é um software para gestão de disponibilidade de lotes e controle de reservas. Ele foi desenvolvido para
-auxiliar no gerenciamento de disponibilidade de produtos ou lotes em um sistema, bem como o controle e expiração de
-reservas feitas por usuários.
+# Bem-vindo ao R2 Disponibilidade - Sistema Completo para Gerenciamento de Loteamentos e Lotes!
+
+O R2 Disponibilidade é uma plataforma avançada para auxiliar no gerenciamento de loteamentos, lotes e reservas, proporcionando uma experiência eficiente e prática em projetos imobiliários. Com esta plataforma, você pode controlar todas as etapas do processo, desde a criação de loteamentos até o gerenciamento de vendas e reservas.
+
+## Loteamentos
+
+Na seção de Loteamentos, você terá acesso a uma visão detalhada dos seus projetos imobiliários em um mapa interativo. Essa funcionalidade permite uma análise completa da disponibilidade e ocupação de lotes. Além disso, é possível adicionar novos loteamentos, editar informações e atribuir corretores especializados para cada projeto.
+
+## Lotes
+
+Gerencie o status de cada lote de forma intuitiva! O R2 Disponibilidade permite marcar os lotes como Bloqueados, Disponíveis, Reserva Confirmada, Reservados ou Vendidos. Além disso, você pode realizar reservas ou simular compras, proporcionando a melhor experiência possível aos seus clientes.
+
+## Dashboard Personalizado
+
+Nossa plataforma oferece um Dashboard personalizado para cada loteamento específico. Nele, você terá acesso a informações detalhadas sobre vendas, reservas e outras métricas importantes para uma gestão eficiente.
+
+## Reservas
+
+A seção de Reservas lista todos os lotes atualmente reservados, permitindo a renovação ou ajuste dos prazos conforme necessário. Além disso, é possível criar propostas personalizadas e visualizar o histórico completo de cada reserva, garantindo um atendimento personalizado e de qualidade.
+
+## Gestão de Pessoas
+
+Com o R2 Disponibilidade, você pode gerenciar o cadastro de clientes, corretores e outras partes interessadas de forma simples e rápida. Adicione, edite ou exclua registros, mantendo sempre os dados atualizados e organizados.
+
+Desfrute da eficiência e praticidade da nossa plataforma para otimizar o gerenciamento de loteamentos, lotes, reservas e pessoas em seus projetos imobiliários. Conte com nosso apoio em cada passo do caminho para o sucesso!
+
 
 
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
