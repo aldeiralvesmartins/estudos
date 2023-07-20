@@ -61,7 +61,8 @@ reservas feitas por usuários.
 ## Construído Com
 
 * [![Laravel][Laravel.com]][Laravel-url]
-* * [![php][php.com]][php-url]
+
+* [![PHP][PHP-badge]][PHP-url]
 
 
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
@@ -286,3 +287,6 @@ Link do Projeto: [https://github.com/your_username/repo_name](https://github.com
 
 [JQuery-url]: https://jquery.com
 
+[PHP-badge]: https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white
+
+[PHP-url]: https://www.php.net/
