@@ -14,7 +14,7 @@
    <br />
     <br />
     <a href="https://github.com/aldeiralvesmartins/estudos/edit/main/redme.md">View Demo</a>
-    ·
+    ·  
     <a href="https://github.com/aldeiralvesmartins/estudos/edit/main/redme.md">Report Bug</a>
     ·
     <a href="https://github.com/aldeiralvesmartins/estudos/edit/main/redme.md">Request Feature</a>
