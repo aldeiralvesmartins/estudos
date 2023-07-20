@@ -284,7 +284,7 @@ to kick things off!
 
 [linkedin-url]: https://linkedin.com/in/othneildrew
 
-[comment]: <> ([product-screenshot]: file:///home/usuario07/Imagens/teste1.jpg)
+[product-screenshot]: pagina.png
 
 [Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 
