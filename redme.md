@@ -28,7 +28,7 @@
   <summary>Índice</summary>
   <ol>
  <li><a href="#sobre-o-projeto">Sobre o Projeto</a></li>
-    <li><a href="#construido-com">Construído Com</a></li>
+   <li><a href="#construído-com">Construído Com</a></li>
     <li><a href="#pre-requisitos">Pré-requisitos</a></li>
     <li><a href="#instalação">Instalação</a></li>
     <li><a href="#passos-para-configurar-em-ambiente-de-desenvolvimento">Passos para configurar em ambiente de desenvolvimento</a></li>
@@ -85,7 +85,7 @@ reservas feitas por usuários.
    ```bash
    composer install
    ```
-3. Crie o arquivo de configuração de ambiente ('`.env`') copiando o exemplo fornecido:
+3. Crie o arquivo de configuração de ambiente `.env` copiando o exemplo fornecido:
    ```bash
    cp .env.example .env
    ```
@@ -117,8 +117,11 @@ reservas feitas por usuários.
 
 
 ## Para iniciar serviço de queues - Manualmente
-- Executar comando:  **php artisan queue:work** ou **php artisan queue:listen** para deixar o serviço aguardando requisição de fila
+
+- Executar comando: **php artisan queue:work** ou **php artisan queue:listen** para deixar o serviço aguardando requisição de fila
 - Ao chamar a rota **"{URL-DISPONIBILIDADE}/v1/AtualizaReservasParaExpiradas"** será chamada uma verificação do tempo de expiração de uma reserva (portanto) necessita-se adicionar ao agendador a chamada dessa rota de forma temporizada para realizar a expiração das reservas.
+
+<p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
 
@@ -127,6 +130,7 @@ reservas feitas por usuários.
 
 
 ## Para Colocar Filas para Rodar no Supervisor
+
 * Instalar serviço de Supervisor: "**sudo apt-get install supervisor**"
 
 >* Acessa a pasta /etc/supervisor/conf.d/
@@ -319,151 +323,3 @@ to kick things off!
 
 [JQuery-url]: https://jquery.com
 
-
-[comment]: <> (# R2 Disponibilidade)
-
-[comment]: <> (Software para gestão de disponibilidade de lotes e controle de reservas.)
-
-[comment]: <> (## Pré Requisitos)
-
-[comment]: <> (-   PHP >= 8.0)
-
-[comment]: <> (-   OpenSSL PHP Extensão)
-
-[comment]: <> (-   PDO PHP Extensão)
-
-[comment]: <> (-   Mbstring PHP Extensão)
-
-
-[comment]: <> (## Passos para configurar em ambiente de desenvolvimento:)
-
-[comment]: <> (-   Acessar o diretório do projeto, depois executar o comando  `composer install`  para baixar as dependências do projeto.)
-
-[comment]: <> (-   Criar um arquivo chamado:  `.env`. Observação: basta copiar o arquivo .env.example que contém as chaves necessárias para o projeto trabalhar, e adicionar os valores às chaves.)
-
-[comment]: <> (-   Depois de executar os passos acima, execute o comando:  `php -S localhost:9000 -t public`  para executar o projeto usando servidor imbutido do php. Com isso você terá a aplicação rodando no endereço http://localhost:9000.)
-
-[comment]: <> (-   Executar comando:  `php artisan migrate`  para rodar as migrations)
-
-
-[comment]: <> (## Para iniciar serviço de Queues&#40;Filas&#41; - Manualmente)
-
-[comment]: <> (- Executar comando:  `php artisan queue:work` ou `php artisan queue:listen` para deixar o serviço aguardando requisição de fila)
-
-[comment]: <> (- Ao chamar a rota `"{URL-DISPONIBILIDADE}/v1/AtualizaReservasParaExpiradas"` será chamada uma verificação do tempo de expiração de uma reserva &#40;portanto&#41; necessita-se adicionar ao agendador a chamada dessa rota de forma temporizada para realizar a expiração das reservas.)
-
-[comment]: <> (## Para Colocar Filas para Rodar no Supervisor)
-
-[comment]: <> (* Instalar serviço de Supervisor: "`sudo apt-get install supervisor`")
-
-[comment]: <> (>* Acessa a pasta /etc/supervisor/conf.d/)
-
-[comment]: <> (>* Cria arquivo "r2disponibilidade-worker.conf")
-
-[comment]: <> (>* Cola texto abaixo &#40;adapta terceira linha para apontar endereço do diretório do projeto&#41;; &#40;adapta penúltima linha para gravar logs dentro do diretório do projeto&#41;)
-
-[comment]: <> (>* Adaptar o USER do arquivo abaixo para o usuário LINUX que o servidor usa.)
-
-[comment]: <> (>[program:laravel-worker]<br>)
-
-[comment]: <> (process_name=%&#40;program_name&#41;s_%&#40;process_num&#41;02d<br>)
-
-[comment]: <> (command=php /home/usuario10/r2-projetos/r2-disponibilidade/artisan queue:work --sleep=3 --tries=3 --max-time=3600<br>)
-
-[comment]: <> (autostart=true<br>)
-
-[comment]: <> (autorestart=true<br>)
-
-[comment]: <> (stopasgroup=true<br>)
-
-[comment]: <> (killasgroup=true<br>)
-
-[comment]: <> (user=usuario10<br>)
-
-[comment]: <> (numprocs=8<br>)
-
-[comment]: <> (redirect_stderr=true<br>)
-
-[comment]: <> (stdout_logfile=/home/usuario10/r2-projetos/r2-disponibilidade/worker.log<br>)
-
-[comment]: <> (stopwaitsecs=3600<br>)
-
-
-[comment]: <> (* Roda no terminal recarregamento das configurações do Supervisor: "`sudo supervisorctl reread`")
-
-[comment]: <> (* Roda Update do Supervisor: "`sudo supervisorctl update`")
-
-[comment]: <> (* Roda Start do Supervisor de todas as configurações: "`sudo supervisorctl start laravel-worker:` ")
-
-
-[comment]: <> (> Links Uteis <br>)
-
-[comment]: <> (>*  https://laravel.com/docs/9.x/queues#supervisor-configuration <br>)
-
-[comment]: <> (>*  http://supervisord.org/index.html <br>)
-
-[comment]: <> (>*  https://www.zentao.pm/blog/use-Supervisor-to-manage-Laravel-queue-416.html <br>)
-
-[comment]: <> (## Rodar para restart do Supervisor)
-
-[comment]: <> (* Quando há alteração de Queues&#40;filas&#41; ou alteração de configuração de supervisor)
-
-[comment]: <> (>**service supervisor restart**<br>)
-
-[comment]: <> (## Árvore de diretórios da pasta storage)
-
-[comment]: <> (- A pasta storage deve possuir a seguinte estrutura. Verifique se o seu projeto possui:)
-
-[comment]: <> ( ```sh)
-
-[comment]: <> (.storage)
-
-[comment]: <> (├──── framework)
-
-[comment]: <> (|         ├── app)
-
-[comment]: <> (|         |     ├── public )
-
-[comment]: <> (|         |     |      └── .gitignore      )
-
-[comment]: <> (|         |     └── .gitignore)
-
-[comment]: <> (|         |)
-
-[comment]: <> (|         ├── cache)
-
-[comment]: <> (|         |      ├── data )
-
-[comment]: <> (|         |      └── .gitignore)
-
-[comment]: <> (|         |)
-
-[comment]: <> (|         ├── sessions )
-
-[comment]: <> (|         |      └── .gitignore)
-
-[comment]: <> (|         |         )
-
-[comment]: <> (|         └── views)
-
-[comment]: <> (|                └── .gitignore)
-
-[comment]: <> (|         )
-
-[comment]: <> (|)
-
-[comment]: <> (└───── logs)
-
-[comment]: <> (           └─── .gitignore            )
-
-[comment]: <> (```)
-
-[comment]: <> (É importante seguir essa estrutura porque durante a execução são gerados arquivos temporarios &#40;além de arquivos de logs&#41; dentro de algumas pastas, e se não existir essa pasta o sistema não a criará.)
-
-[comment]: <> (## Run Coverage)
-
-[comment]: <> (```bash)
-
-[comment]: <> (XDEBUG_MODE=coverage vendor/bin/phpunit --whitelist src/ --coverage-html tests/_reports/coverage)
-
-[comment]: <> (```)
