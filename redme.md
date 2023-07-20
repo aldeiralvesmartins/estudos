@@ -165,7 +165,7 @@ stopwaitsecs=3600
 >**service supervisor restart**<br>
 
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
 ## Árvore de diretórios da pasta storage
@@ -222,7 +222,7 @@ Seu Nome - [@your_twitter](https://twitter.com/your_username) - email@example.co
 Link do Projeto: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
 
 
- 
+
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
