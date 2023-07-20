@@ -146,7 +146,7 @@ stopwaitsecs=3600<br>
 ## Rodar para restart do Supervisor
 * Quando há alteração de Queues(filas) ou alteração de configuração de supervisor
 >**service supervisor restart**<br>
-<p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
+
 ## Árvore de diretórios da pasta storage
 - A pasta storage deve possuir a seguinte estrutura. Verifique se o seu projeto possui:
  ```sh
