@@ -13,7 +13,7 @@
     Software para gestão de disponibilidade de lotes e controle de reservas.
    <br />
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
+    <a href="[https://github.com/othneildrew/Best-README-Template](https://github.com/aldeiralvesmartins/estudos/edit/main/redme.md)">View Demo</a>
     ·
     <a href="https://github.com/othneildrew/Best-README-Template/issues">Report Bug</a>
     ·
