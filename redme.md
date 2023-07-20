@@ -215,19 +215,17 @@ stopwaitsecs=3600
 <butoon align="right">(<a href="#readme-top">volta ao topo</a>)</butoon>
 
 
-<!-- Contato -->
 
 ## Contato
 
 Seu Nome - [@your_twitter](https://twitter.com/your_username) - email@example.com
-
 Link do Projeto: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
 
+
+ 
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
 [contributors-shield]: https://img.shields.io/github/contributors/othneildrew/Best-README-Template.svg?style=for-the-badge
 
