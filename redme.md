@@ -135,6 +135,7 @@ reservas feitas por usuários.
 >* Adaptar o USER do arquivo abaixo para o usuário LINUX que o servidor usa.
 
 >[program:laravel-worker]<br>
+```sh
 process_name=%(program_name)s_%(process_num)02d<br>
 command=php /home/usuario10/r2-projetos/r2-disponibilidade/artisan queue:work --sleep=3 --tries=3 --max-time=3600<br>
 autostart=true<br>
@@ -146,7 +147,7 @@ numprocs=8<br>
 redirect_stderr=true<br>
 stdout_logfile=/home/usuario10/r2-projetos/r2-disponibilidade/worker.log<br>
 stopwaitsecs=3600<br>
-
+``` 
 
 * Roda no terminal recarregamento das configurações do Supervisor: "**sudo supervisorctl reread**"
 * Roda Update do Supervisor: "**sudo supervisorctl update**"
