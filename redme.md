@@ -215,13 +215,13 @@ stopwaitsecs=3600
 <butoon align="right">(<a href="#readme-top">volta ao topo</a>)</butoon>
 
 
-<!-- Contado -->
+<!-- Contato -->
 
-## Contado
+## Contato
 
-Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com
+Seu Nome - [@your_twitter](https://twitter.com/your_username) - email@example.com
 
-Project Link: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
+Link do Projeto: [https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
 
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
