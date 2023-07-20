@@ -220,7 +220,7 @@ stopwaitsecs=3600
 
 ## Contato
 
-R2 Soft - [@your_twitter](https://twitter.com/r2_soft) - email@example.com
+R2 Soft - [@your_twitter](https://twitter.com/r2_soft) - suporte@r2soft.com.br
 <br>
 Link do Projeto:[https://github.com/your_username/repo_name](https://github.com/your_username/repo_name)
 
