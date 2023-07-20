@@ -61,6 +61,7 @@ reservas feitas por usuários.
 ## Construído Com
 
 * [![Laravel][Laravel.com]][Laravel-url]
+* * [![php][php.com]][php-url]
 
 
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
