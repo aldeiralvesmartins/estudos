@@ -32,7 +32,7 @@
     <li><a href="#pre-requisitos">Pré-requisitos</a></li>
     <li><a href="#instalação">Instalação</a></li>
     <li><a href="#passos-para-configurar-em-ambiente-de-desenvolvimento">Passos para configurar em ambiente de desenvolvimento</a></li>
-    <li><a href="#para-iniciar-serviço-de-queues-manualmente">Para iniciar serviço de queues (filas) - Manualmente</a></li>
+    <li><a href="#para-iniciar-serviço-de-queues-manualmente">Para iniciar serviço de queues Manualmente</a></li>
     <li><a href="#para-colocar-filas-para-rodar-no-supervisor">Para colocar filas para rodar no Supervisor</a></li>
     <li><a href="#rodar-para-restart-do-supervisor">Rodar para restart do Supervisor</a></li>
     <li><a href="#árvore-de-diretórios-da-pasta-storage">Árvore de diretórios da pasta storage</a></li>
@@ -116,7 +116,7 @@ reservas feitas por usuários.
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
-## Para iniciar serviço de queues (filas) - Manualmente
+## Para iniciar serviço de queues Manualmente
 
 - Executar comando: **php artisan queue:work** ou **php artisan queue:listen** para deixar o serviço aguardando requisição de fila
 - Ao chamar a rota **"{URL-DISPONIBILIDADE}/v1/AtualizaReservasParaExpiradas"** será chamada uma verificação do tempo de expiração de uma reserva (portanto) necessita-se adicionar ao agendador a chamada dessa rota de forma temporizada para realizar a expiração das reservas.
