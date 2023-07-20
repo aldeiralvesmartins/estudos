@@ -30,7 +30,7 @@
     <li><a href="#sobre-o-projeto">Sobre o Projeto</a></li>
     <li><a href="#construido-com">Construído Com</a></li>
     <li><a href="#pre-requisitos">Pre Requisitos</a></li>
-    <li><a href="#installation">Instalação</a></li>
+    <li><a href="#instalação">Instalação</a></li>
     <li><a href="#passos-para-configurar-em-ambiente-de-desenvolvimento">Passos para configurar em ambiente de desenvolvimento</a></li>
     <li><a href="#para-iniciar-serviço-de-queues(filas)-manualmente">Para iniciar serviço de Queues(Filas) - Manualmente</a></li>
     <li><a href="#para-colocar-filas-para-rodar-no-supervisor">Para Colocar Filas para Rodar no Supervisor</a></li>
