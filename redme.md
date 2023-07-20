@@ -116,7 +116,7 @@ reservas feitas por usuários.
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 
-## Para iniciar serviço de Queues(Filas) - Manualmente
+## Para iniciar serviço de queues (filas) - Manualmente
 - Executar comando:  **php artisan queue:work** ou **php artisan queue:listen** para deixar o serviço aguardando requisição de fila
 - Ao chamar a rota **"{URL-DISPONIBILIDADE}/v1/AtualizaReservasParaExpiradas"** será chamada uma verificação do tempo de expiração de uma reserva (portanto) necessita-se adicionar ao agendador a chamada dessa rota de forma temporizada para realizar a expiração das reservas.
 
