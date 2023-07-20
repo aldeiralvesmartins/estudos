@@ -214,9 +214,7 @@ stopwaitsecs=3600
 4. Abra uma solicitação pull
 
 
-<butoon align="right">(<a href="#readme-top">volta ao topo</a>)</butoon>
-
-
+<p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
 
 ## Contato
 
