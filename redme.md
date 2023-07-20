@@ -1,3 +1,5 @@
+<a name="readme-top"></a>
+
 # R2 Disponibilidade
 
 Software para gestão de disponibilidade de lotes e controle de reservas.
