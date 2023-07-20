@@ -32,10 +32,10 @@
     <li><a href="#pre-requisitos">Pre Requisitos</a></li>
     <li><a href="#instalação">Instalação</a></li>
     <li><a href="#passos-para-configurar-em-ambiente-de-desenvolvimento">Passos para configurar em ambiente de desenvolvimento</a></li>
-    <li><a href="#para-iniciar-serviço-de-queues(filas)-manualmente">Para iniciar serviço de Queues(Filas) - Manualmente</a></li>
+    <li><a href="#para-iniciar-serviço-de-queues-filas-manualmente">Para iniciar serviço de Queues(Filas) - Manualmente</a></li>
     <li><a href="#para-colocar-filas-para-rodar-no-supervisor">Para Colocar Filas para Rodar no Supervisor</a></li>
     <li><a href="#rodar-para-restart-do-supervisor">Rodar para restart do Supervisor</a></li>
-    <li><a href="#arvore-de-diretorios-da-pasta-storage">Árvore de diretórios da pasta storage</a></li>
+    <li><a href="#árvore-de-diretórios-da-pasta-storage">Árvore de diretórios da pasta storage</a></li>
     <li><a href="#run-coverage">Run Coverage</a></li>
   </ol>
 </details>
