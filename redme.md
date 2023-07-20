@@ -204,11 +204,10 @@ stopwaitsecs=3600
 
 ## Contribuindo
 
-1. Fork o projeto
-2. Crie sua Feature Branch (`git checkout -b feature/NomeFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some NomeFeature'`)
-4. Push para a Branch (`git push origin feature/NomeFeature`)
-5. Abra uma solicitação pull
+1. Crie sua Feature Branch (`git checkout -b feature/NomeFeature`)
+2. Commit suas mudanças (`git commit -m 'Add some NomeFeature'`)
+3. Push para a Branch (`git push origin feature/NomeFeature`)
+4. Abra uma solicitação pull
 
 
 <butoon align="right">(<a href="#readme-top">volta ao topo</a>)</butoon>
