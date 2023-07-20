@@ -37,6 +37,7 @@
     <li><a href="#rodar-para-restart-do-supervisor">Rodar para restart do Supervisor</a></li>
     <li><a href="#árvore-de-diretórios-da-pasta-storage">Árvore de diretórios da pasta storage</a></li>
     <li><a href="#run-coverage">Run Coverage</a></li>
+    <li><a href="#contribuindo">Contribuindo</a></li>
     <li><a href="#contato">Contato</a></li>
   </ol>
 </details>
@@ -201,7 +202,7 @@ stopwaitsecs=3600
 >XDEBUG_MODE=coverage vendor/bin/phpunit --whitelist src/ --coverage-html tests/_reports/coverage
 
 <p align="right">(<a href="#readme-top">volta ao topo</a>)</p>
-<!-- CONTRIBUTING -->
+<!-- Contribuindo -->
 
 ## Contribuindo
 
@@ -214,7 +215,7 @@ stopwaitsecs=3600
 <butoon align="right">(<a href="#readme-top">volta ao topo</a>)</butoon>
 
 
-<!-- CONTACT -->
+<!-- Contado -->
 
 ## Contado
 
