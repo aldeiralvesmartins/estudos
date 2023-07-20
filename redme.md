@@ -133,20 +133,19 @@ reservas feitas por usuários.
 >* Cria arquivo "r2disponibilidade-worker.conf"
 >* Cola texto abaixo (adapta terceira linha para apontar endereço do diretório do projeto); (adapta penúltima linha para gravar logs dentro do diretório do projeto)
 >* Adaptar o USER do arquivo abaixo para o usuário LINUX que o servidor usa.
-
->[program:laravel-worker]<br>
 ```sh
-process_name=%(program_name)s_%(process_num)02d<br>
-command=php /home/usuario10/r2-projetos/r2-disponibilidade/artisan queue:work --sleep=3 --tries=3 --max-time=3600<br>
-autostart=true<br>
-autorestart=true<br>
-stopasgroup=true<br>
-killasgroup=true<br>
-user=usuario10<br>
-numprocs=8<br>
-redirect_stderr=true<br>
-stdout_logfile=/home/usuario10/r2-projetos/r2-disponibilidade/worker.log<br>
-stopwaitsecs=3600<br>
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /home/usuario10/r2-projetos/r2-disponibilidade/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=usuario10
+numprocs=8
+redirect_stderr=true
+stdout_logfile=/home/usuario10/r2-projetos/r2-disponibilidade/worker.log
+stopwaitsecs=3600
 ``` 
 
 * Roda no terminal recarregamento das configurações do Supervisor: "**sudo supervisorctl reread**"
