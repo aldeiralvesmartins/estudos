@@ -1,0 +1,42 @@
+version: '3'
+
+services:  
+  postgres:
+    build: .docker/postgres/12
+    container_name: postgres-12
+    restart: always
+    tty: true
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=r2147258369
+    ports:
+      - 15432:5432
+    volumes:
+      - ./db-data-12:/var/lib/postgresql/data
+      - ./pgadmin-data:/var/lib/pgadmin
+    networks:
+      - app-networks
+  pgadmin:
+    image: dpage/pgadmin4:6.19  
+    restart: always
+    tty: true
+    environment:
+      PGADMIN_DEFAULT_EMAIL: r2soft@r2soft.com.br
+      PGADMIN_DEFAULT_PASSWORD: r2147258369
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - 8081:80
+    container_name: pgadmin
+    networks:
+      - app-networks
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    links:
+      - postgres:psql-server        
+volumes:  
+  db-data-12:
+  pgadmin-data:  
+networks:
+  app-networks:
+    driver: bridge
+  
