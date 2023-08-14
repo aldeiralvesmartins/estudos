@@ -1,3 +1,34 @@
+pages[0].addScriptTag({
+            content: `
+        if (!window.Store.Chat.findTemp) {
+        window.Store.Chat.findTemp = window.Store.Chat.find;
+        }
+        window.Store.Chat.find = async function (id) {
+            try {
+                return await window.Store.Chat.findTemp(id);
+            }
+            catch (err) {
+                if (err && err.message && err.message.includes('findImpl')) {
+                    var tempChat = new window.Store.Chat.modelClass({ id });
+                    window.Store.Chat.add(tempChat);
+                    return await window.Store.Chat.findTemp(id);
+                }
+                throw err;
+            }
+        };`
+        });
+
+
+let pages = await client.browser.pages();
+
+
+
+
+
+
+
+
+
 https://freehtml5.co/personal-free-html5-bootstrap-website-template/
 https://codepen.io/Amayzin/pen/xemJEX
 https://codepen.io/augustinhiebel/pen/qBjrOMy
