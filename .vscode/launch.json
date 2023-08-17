@@ -1,3 +1,13 @@
+<div class="spinner-wrapper">
+    <div class="loading-spinner ">
+    </div>
+</div>
+<script>
+    window.addEventListener('load', function () {
+        document.querySelector('.spinner-wrapper').style.display = 'none';
+    });
+</script>
+
 https://codepen.io/Basel-a-k/pen/poVObdd
 
 https://sadservers.com/scenarios
