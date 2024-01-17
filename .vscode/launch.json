@@ -1,3 +1,151 @@
+
+ 1 - Arquivo de Configuração Principal:
+
+O arquivo principal de configuração do Apache geralmente é chamado de httpd.conf ou apache2.conf. Verifique se há configurações fora dos blocos <VirtualHost> nesse arquivo.
+Use um editor de texto para examinar o conteúdo do arquivo:
+---------------------------------------------------------------------
+Copy code
+sudo nano /etc/apache2/apache2.conf
+---------------------------------------------------------------------
+
+ 2 - Diretórios conf-available e conf-enabled:
+
+Em alguns sistemas, especialmente aqueles que utilizam a estrutura de configuração modular, as configurações globais podem ser distribuídas em vários arquivos dentro dos diretórios conf-available e conf-enabled.
+Verifique os arquivos dentro desses diretórios para garantir que não contenham configurações que estejam interferindo nos VirtualHosts:
+---------------------------------------------------------------------
+Copy code
+ls /etc/apache2/conf-available/
+ls /etc/apache2/conf-enabled/
+---------------------------------------------------------------------
+
+ 3 - Módulos Ativados:
+
+Certifique-se de que apenas os módulos necessários estejam ativados. Isso pode ser feito usando os comandos a2enmod e a2dismod. Alguns módulos podem afetar globalmente o comportamento do Apache.
+---------------------------------------------------------------------
+Copy code
+sudo a2dismod nomedomodulo
+sudo a2enmod nomedomodulo
+---------------------------------------------------------------------
+ 
+ 4 - Arquivos .htaccess:
+
+Verifique se há arquivos .htaccess em diretórios específicos que possam estar interferindo no roteamento. Os arquivos .htaccess contêm configurações que podem afetar globalmente o comportamento do Apache.
+
+ 5 - Verificação de Erros nos Logs do Apache:
+
+Examine os logs de erro do Apache (/var/log/apache2/error.log) em busca de mensagens que possam indicar configurações problemáticas ou conflitos.
+
+ 6 - Ordem de Carregamento de Configurações:
+
+Confirme a ordem em que os arquivos de configuração são carregados. Às vezes, a ordem pode afetar o resultado final. Isso pode ser controlado pela diretiva Include no arquivo principal de configuração.
+ 
+ 7 - Reinicie o Apache:
+
+Após fazer alterações nas configurações, sempre reinicie o Apache para que as mudanças tenham efeito:
+---------------------------------------------------------------------
+Copy code
+sudo service apache2 restart
+---------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 https://www.google.com.br/maps/@-15.753179,-49.3165956,3a,15y,338.17h,84.18t/data=!3m6!1e1!3m4!1saES7N6lubxnk-t3_eYVztg!2e0!7i16384!8i8192?entry=ttu
 
 
