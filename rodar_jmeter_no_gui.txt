@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Verifica se foi fornecido o nome do arquivo JMX como argumento
+if [ -z "$1" ]; then
+    echo "Por favor, forneça o nome do arquivo JMX como argumento."
+    exit 1
+fi
+
+# Obtém o diretório do script atual
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Define o timestamp
+timestamp=$(date +"%Y%m%d%H%M%S")
+
+# Caminho para o diretório do Apache JMeter
+jmeter_dir="$HOME/Área de Trabalho/apache-jmeter-5.6.3"
+
+# Caminho para o script JMeter
+jmeter_script="$jmeter_dir/bin/jmeter.sh"
+
+# Caminho para o arquivo JMX de teste
+jmx_file="$HOME/Área de Trabalho/apache-jmeter-5.6.3/backups/$1"
+
+# Caminho para o arquivo de resultados JTL
+results_file="$HOME/Área de Trabalho/apache-jmeter-5.6.3/backups/results_${timestamp}.jtl"
+
+# Caminho para o diretório de relatórios
+reports_dir="$HOME/Área de Trabalho/apache-jmeter-5.6.3/backups/relatorios_jmeter"
+
+# Executa o script JMeter
+"$jmeter_script" -n -t "$jmx_file" -l "$results_file" -e -o "$reports_dir" -f
+
+
+
+
+
+
