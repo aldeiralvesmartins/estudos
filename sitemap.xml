@@ -1,3 +1,19 @@
+export const generateDigit = (cpfArray) => {
+    const modulus = cpfArray.length + 1;
+    const multiplied = cpfArray.map((digit, index) => digit * (modulus - index));
+    const remainder = multiplied.reduce((acc, value) => acc + value) % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+};
+
+export const generateCPF = () => {
+    const cpfArray = Array.from({length: 9}, () => Math.floor(Math.random() * 10));
+    cpfArray.push(generateDigit(cpfArray));
+    cpfArray.push(generateDigit(cpfArray));
+    return cpfArray.join('').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+};
+
+
+
 https://www.verificacnpj.com/cnpj/checkout/consulta/2a178f09-6e12-477e-1c03-08dcbafbcfc2
 https://github.com/Priler/dino3d
 https://github.com/brunofilho1/javascript-dinosaur-game
