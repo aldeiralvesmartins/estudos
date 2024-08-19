@@ -1,3 +1,5 @@
+https://github.com/louislam/uptime-kuma
+
 export const generateDigit = (cpfArray) => {
     const modulus = cpfArray.length + 1;
     const multiplied = cpfArray.map((digit, index) => digit * (modulus - index));
