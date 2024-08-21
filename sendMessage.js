@@ -75,8 +75,13 @@ function checkStatus(site) {
             const currentTime = Date.now();
             const lastTime = lastMessageTime[site.name] || 0;
 
-            if (status === 'offline' && (currentTime - lastTime) >= 5 * 60 * 1000) { // Verifica se se passaram 5 minutos
-                sendAlert(site.name, 'fora do ar');
+            if (status === 'offline') {
+                if ((currentTime - lastTime) >= 5 * 60 * 1000) { // Verifica se se passaram 5 minutos
+                    sendAlert(site.name, 'fora do ar');
+                }
+            } else {
+                // Se o site está online, você pode resetar o tempo de envio para o site
+                delete lastMessageTime[site.name];
             }
         })
         .catch(err => {
