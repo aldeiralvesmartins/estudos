@@ -45,13 +45,15 @@ const proxyUrl = 'https://api.allorigins.win/get?url=';
 const lastMessageTime = {};
 
 // Função para enviar mensagem de alerta
-function sendAlert(siteName, errorMessage) {
-    const number = '5562993603737@c.us'; // Número do destinatário  grupo AVISO 120363307365249333@g.us
+function sendAlert(siteName, errorMessage, siteUrl) {
+    const number = '120363307365249333@g.us'; // Número do destinatário
     const message = `🚨 **ALERTA:** O site ${siteName} está fora do ar! 🚨
 
 Detalhes do erro: ${errorMessage}
 
-Verifique a situação e tome as ações necessárias.`;
+Verifique a situação e tome as ações necessárias.
+
+Link do site: ${siteUrl}`;
 
     client.sendMessage(number, message).then(response => {
         console.log(`Mensagem enviada: ${message}`);
@@ -76,8 +78,8 @@ function checkStatus(site) {
             const lastTime = lastMessageTime[site.name] || 0;
 
             if (status === 'offline') {
-                if ((currentTime - lastTime) >= 5 * 60 * 1000) { // Verifica se se passaram 5 minutos
-                    sendAlert(site.name, 'fora do ar');
+                if ((currentTime - lastTime) >= 24 * 60 * 60 * 1000) { // Verifica se se passaram 1 dia
+                    sendAlert(site.name, 'fora do ar', site.url);
                 }
             } else {
                 // Se o site está online, você pode resetar o tempo de envio para o site
@@ -88,8 +90,8 @@ function checkStatus(site) {
             const currentTime = Date.now();
             const lastTime = lastMessageTime[site.name] || 0;
 
-            if ((currentTime - lastTime) >= 5 * 60 * 1000) { // Verifica se se passaram 5 minutos
-                sendAlert(site.name, `Erro ao acessar o site: ${err.message}`);
+            if ((currentTime - lastTime) >= 24 * 60 * 60 * 1000) { // Verifica se se passaram 1 dia
+                sendAlert(site.name, `Erro ao acessar o site: ${err.message}`, site.url);
             }
             console.error(`Erro ao verificar o site ${site.name}: ${err.message}`);
         });
@@ -112,7 +114,7 @@ setInterval(() => {
 
 // Rota para enviar mensagem manualmente
 app.get('/send-message', (req, res) => {
-    const number = '5562993603737@c.us'; // Número do destinatário
+    const number = '120363307365249333@g.us'; // Número do destinatário
     const message = `🚨 **ALERTA:** O site está fora do ar! 🚨
 
 Detalhes: O site está temporariamente indisponível. Verifique a situação e tome as ações necessárias.`;
