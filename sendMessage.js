@@ -46,7 +46,7 @@ const lastMessageTime = {};
 
 // Função para enviar mensagem de alerta
 function sendAlert(siteName, errorMessage) {
-    const number = '5562993603737@c.us'; // Número do destinatário
+    const number = '5562993603737@c.us'; // Número do destinatário  grupo AVISO 120363307365249333@g.us
     const message = `🚨 **ALERTA:** O site ${siteName} está fora do ar! 🚨
 
 Detalhes do erro: ${errorMessage}
