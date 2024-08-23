@@ -1,3 +1,5 @@
+ wget --recursive --no-parent --page-requisites --html-extension --convert-links --directory-prefix="/home/usuario07/Área de Trabalho" https://quiz-show-do-milhao.vercel.app/
+
 https://github.com/louislam/uptime-kuma
 
 export const generateDigit = (cpfArray) => {
