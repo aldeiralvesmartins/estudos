@@ -1,4 +1,6 @@
- wget --recursive --no-parent --page-requisites --html-extension --convert-links --directory-prefix="/home/usuario07/Área de Trabalho" https://quiz-show-do-milhao.vercel.app/
+https://chatgpt.com/share/671a82f0-51dc-8013-9545-55f956f6106e
+
+wget --recursive --no-parent --page-requisites --html-extension --convert-links --directory-prefix="/home/usuario07/Área de Trabalho" https://quiz-show-do-milhao.vercel.app/
 
 https://github.com/louislam/uptime-kuma
 
