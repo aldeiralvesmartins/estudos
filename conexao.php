@@ -1,3 +1,7 @@
+Preciso de um esquema de tabelas onde preciso de clientes nome, telefone, endereço, referente de pagamento,horas trabalhado ,valor hora tabelas de funcionários nome, telefone dados bancários, horas trabalhado, valor hora e preciso de um pra serviço que teria o cliente, um ou mais funcionários, valor hora ,horas trabalhado, lembrando que pode ter um mais funcionários onde as horas trabalhado e o valor será dividido igualmente pra todos funcionários que trabalharam nesse serviço específico 
+
+
+
 <?php
 
 $databasePath = __DIR__ . '/banco.sqlite';
