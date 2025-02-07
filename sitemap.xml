@@ -1,3 +1,138 @@
+<?php
+function debug($data)
+{
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
+    $caller = $backtrace[0];
+    $file = $caller['file'] ?? 'unknown';
+    $line = $caller['line'] ?? 'unknown';
+
+    // Gerar um ID único para cada botão de cópia
+    $uniqueId = uniqid('debug-btn-');
+    $uniqueTextId = uniqid('debug-text-');
+
+    // Converter array/objeto para formato PHP
+    $formattedData = formatarArrayPHP($data);
+    $dataJson = htmlspecialchars($formattedData);
+
+    echo '<div style="
+        background: #282c34; 
+        color: #abb2bf; 
+        padding: 12px; 
+        font-family: Consolas, Monaco, monospace; 
+        border-radius: 6px; 
+        margin: 15px 0; 
+        box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.2);
+        max-width: 85%;
+        font-size: 12px;
+        overflow-x: auto;
+        position: relative;
+    ">';
+
+    // Exibir arquivo e linha
+    echo "<div style='color: #e06c75; font-weight: bold; margin-bottom: 6px;'>
+            📌 Debug chamado em: <span style='color: #61afef;'>$file</span> 
+            na linha <span style='color: #98c379;'>$line</span>
+          </div>";
+
+    echo "<div style='border-bottom: 1px solid #444; margin: 8px 0;'></div>";
+
+    // Exibir tipo do dado
+    echo "<strong style='color: #e5c07b;'>Tipo:</strong> <span style='color: #56b6c2;'>" . gettype($data) . '</span><br><br>';
+
+    // Botão copiar
+    echo '<button id="' . $uniqueId . '" onclick="copiarDebug(\'' . $uniqueTextId . '\', \'' . $uniqueId . '\')" style="
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #1e1e1e;
+        color: #fff;
+        border: none;
+        padding: 5px 8px;
+        font-size: 11px;
+        cursor: pointer;
+        border-radius: 4px;
+    ">Copiar</button>';
+
+    // Área de exibição dos dados
+    echo '<pre id="' . $uniqueTextId . '" style="
+        background: #1e1e1e; 
+        color: #dcdcdc; 
+        padding: 8px; 
+        border-radius: 4px; 
+        font-size: 11px;
+        overflow-x: auto;
+    ">' . $dataJson . '</pre>';
+
+    // Script de cópia
+    echo '<script>
+        function copiarDebug(debugTextId, buttonId) {
+            var texto = document.getElementById(debugTextId).innerText;
+            navigator.clipboard.writeText(texto).then(() => {
+                // Mudar o texto do botão para "Copiado"
+                document.getElementById(buttonId).innerText = "Copiado";
+                
+                // Voltar ao estado original após 2 segundos
+                setTimeout(function() {
+                    document.getElementById(buttonId).innerText = "Copiar";
+                }, 2000);
+            }).catch(() => {
+                // Caso ocorra algum erro, deixar o texto original no botão
+                document.getElementById(buttonId).innerText = "Erro!";
+                setTimeout(function() {
+                    document.getElementById(buttonId).innerText = "Copiar";
+                }, 2000);
+            });
+        }
+    </script>';
+
+    echo '</div>';
+}
+
+// Função para formatar array/objeto no estilo PHP
+function formatarArrayPHP($data, $indent = 1)
+{
+    if (is_array($data) || is_object($data)) {
+        $formatted = "[\n";
+        foreach ($data as $key => $value) {
+            $formatted .= str_repeat('    ', $indent);
+            $formatted .= is_string($key) ? "\"$key\"" : $key;
+            $formatted .= ' => ';
+            if (is_array($value) || is_object($value)) {
+                $formatted .= formatarArrayPHP($value, $indent + 1);
+            } elseif (is_string($value)) {
+                $formatted .= "\"$value\"";
+            } elseif ($value === null) {
+                $formatted .= 'null';
+            } else {
+                $formatted .= $value;
+            }
+            $formatted .= ",\n";
+        }
+        $formatted .= str_repeat('    ', $indent - 1) . ']';
+        return $formatted;
+    }
+    return var_export($data, true);
+}
+
+
+
+function tempo_execucao()
+{
+    $inicio = $_SERVER['REQUEST_TIME'];
+    $fim = microtime(true);
+    $total = $fim - $inicio;
+    return 'Tempo de Execução: ' . number_format($total, 5) . ' ms';
+}
+
+
+
+
+
+
+
+
+
+
 https://codepen.io/jamesrmoro/pen/RwrRvzb
 
 for product in IntelliJIdea WebStorm DataGrip PhpStorm CLion PyCharm GoLand RubyMine Rider; do
