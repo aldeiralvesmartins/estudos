@@ -1332,3 +1332,1199 @@ class Person extends Model
     ]
 }
 https://r2loteamentos.r2soft.com.br/infoIndice.php?key=cjJzb2Z0IGluZm9ybcOhdGljYSBlIHNvZnR3YXJlcyBsdGRh
+
+
+
+<?php
+
+namespace App\Service\Celcoin;
+
+use App\isR2Aplicativos;
+use App\logofoto;
+use App\Service\R2CnpjService;
+use ClassRegistry;
+use DateTime;
+use Exception;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
+
+/**
+ * Serviço de integração com a API do Celcoin para geração de boletos.
+ */
+class CelcoinService
+{
+    protected array $token;
+    private array $url;
+    private array $dados;
+
+    public function __construct($dados)
+    {
+        $enverimenteCashUrl = getenv('CELCOIN_API_CASH_URL');
+        $this->url = [
+            'authDevCach' => "$enverimenteCashUrl/token",
+            'criarCobrancaBoletoPix' => "$enverimenteCashUrl/charges",
+            'criarOuEditarConta' => "$enverimenteCashUrl/company/subaccount",
+            'criarCliente' => "$enverimenteCashUrl/customers",
+            'buscaConta' => "$enverimenteCashUrl/company/subaccounts",
+            'verifyDocument' => "$enverimenteCashUrl/company/mandatory-documents",
+            'webhook' => "$enverimenteCashUrl/webhooks",
+        ];
+        $this->dados = $dados;
+        $this->authCelCash();
+    }
+
+    /**
+     * Auth.
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function authDev($dados)
+    {
+        $client = new Client();
+        $data = [
+            'grant_type' => 'client_credentials',
+            'client_id' => $dados['conta_api_key'] ?? getenv('CELCOIN_CLIENT_ID'),
+            'client_secret' => $dados['conta_api_secret'] ?? getenv('CELCOIN_CLIENT_SECRET'),
+        ];
+        $url = !empty($dados['conta_api_key']) ? $this->url['authDev'] : $this->url['authDevCach'];
+        try {
+            $this->token = json_decode($client->post($url, ['form_params' => $data, 'headers' => ['Content-Type' => 'application/x-www-form-urlencoded']])->getBody(), true);
+        } catch (RequestException $e) {
+            throw new Exception($e->getMessage(), 1001);
+        }
+    }
+
+    /**
+     * Auth.
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function authCelCash(): void
+    {
+        $client = new Client();
+        $galaxIdAndGalaxHash = $this->dados['conta_api_key'] ?? $this->dados['Conta']['api_key'] ?? null;
+        $scope = 'customers.read customers.write plans.read plans.write webhooks.write cards.read cards.write card-brands.read boletos.read carnes.read payment-methods.read company.write company.read';
+        if (!empty($this->dados['action']) && in_array($this->dados['action'], ['editjuridica', 'addContaR2'])) {
+            $galaxIdAndGalaxHash = getenv('CELCOIN_CLIENT_SECRET');
+            $scope = 'charges.write charges.read transactions.read transactions.write customers.read customers.write plans.read plans.write webhooks.write cards.read cards.write card-brands.read boletos.read carnes.read payment-methods.read company.write company.read';
+        } elseif (!empty($this->dados['action']) && in_array($this->dados['action'], ['imprimirBoletoViaApi', 'imprimirVariosBoletosViaApi'])) {
+            $scope = 'charges.write customers.read customers.write plans.read plans.write webhooks.write cards.read cards.write card-brands.read boletos.read carnes.read payment-methods.read';
+        }
+        $data = ['headers' => ['Authorization' => 'Basic ' . base64_encode($galaxIdAndGalaxHash), 'Content-Type' => 'application/json'], 'json' => ['grant_type' => 'authorization_code', 'scope' => $scope]];
+        try {
+            $this->token = json_decode($client->post($this->url['authDevCach'], $data)->getBody(), true);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'falha na autentificação, entre em contato com nosso suporte.', 'authCelCash');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Criar Cobranca.
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function criarCobrancaBoletoPix(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+            if (!empty($this->dados['id_boleto']) && !empty($this->dados['movimentacao_id'])) {
+                $dados = $this->consultarBoletoPix();
+                if (!empty($dados['Charges'])) {
+                    return $this->trataRetornoCobranca($dados);
+                }
+            }
+            $response = $client->post($this->url['criarCobrancaBoletoPix'], ['headers' => $this->prepareHeaders(), 'json' => $this->prepararDadosParaGerarCobranca()]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            sleep(5);
+            return $this->trataRetornoCobranca($retorno);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Não foi possível criar cobrança, entre em contato com nosso suporte.', 'criarCobrancaBoletoPix');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Criar Cobranca.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function atualizaCobrancaBoletoPix(): bool|array
+    {
+        if (empty($this->dados['id_boleto']) || empty($this->dados['movimentacao_id'])) {
+            throw new Exception('Boleto não encontrado entre em contato com o suporte', 1001);
+        }
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->put($this->url['criarCobrancaBoletoPix'] . '/' . $this->dados['movimentacao_id'] . '/myId',
+                ['headers' => $this->prepareHeaders(), 'json' => [
+                    'payedOutsideGalaxPay' => true
+                ]]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            sleep(5);
+            return $this->trataRetornoCobranca($retorno);
+        } catch (ClientException $e) {
+            $messageError = 'Não foi possivel cria conta, entre em contato com nosso suporte';
+            $error = json_decode($e->getResponse()->getBody()->getContents(), true);
+            if (!empty($error['error']['message'])) {
+                $messageError = $error['error']['message'];
+            }
+            throw new Exception($messageError . " Linha: {$e->getLine()}", 1001);
+        }
+    }
+
+    /**
+     * Criar Cobranca.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    private function consultarBoletoPix(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->get($this->url['criarCobrancaBoletoPix'] . "?myIds={$this->dados['movimentacao_id']}&startAt=0&limit=1", ['headers' => $this->prepareHeaders()]);
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'consultarBoletoPix');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Remove Cobranca.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function removerCobranca(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->delete("{$this->url['criarCobrancaBoletoPix']}/{$this->dados['movimentacao_id']}/myId", ['headers' => $this->prepareHeaders()]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            if (empty($retorno['type'])) {
+                return throw new Exception('Ocorreu um erro ao processar a solicitação.', 1001);
+            }
+            return $this->trataRetornoRemoveCobranca();
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'removerCobranca');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Cria SubConta.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function CriarSubContaCelCash(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+//            $existeConta = $this->verificarSeExisteContaParaCpfCnpj();
+//            if (!empty($existeConta)) {
+//                return $this->trataRetorno($existeConta);
+//            }
+            $response = $client->post($this->url['criarOuEditarConta'],
+                ['headers' => $this->prepareHeaders(), 'json' => $this->prepararDadosParaGerarSubContaCelCash()]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            if (empty($retorno['type'])) {
+                return throw new Exception('Ocorreu um erro ao criar a conta.', 1001);
+            }
+            return $this->trataRetorno($retorno['Company']);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'CriarSubContaCelCash');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Cria Cliente.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    private function buscarOuCriarClienteCobrancaAvulsa(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $existeConta = $this->buscaClienteCelCash();
+            if (!empty($existeConta['Customers'][0])) {
+                return $existeConta['Customers'][0];
+            }
+            $response = $client->post($this->url['criarCliente'], ['headers' => $this->prepareHeaders(), 'json' => $this->montaCustumer()]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            if (empty($retorno['type']) || empty($retorno['Customer'])) {
+                return throw new Exception('Ocorreu um erro ao criar a conta.', 1001);
+            }
+            return $retorno['Customer'];
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'buscarOuCriarClienteCobrancaAvulsa');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Editar Subconta.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function editarSubContaCelCash(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->put($this->url['criarOuEditarConta'] . '/' . $this->dados['Conta']['numero'],
+                ['headers' => $this->prepareHeaders(), 'json' => $this->montaDadosEditarConta()]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            if (empty($retorno['type'])) {
+                return throw new Exception('Ocorreu um erro ao editar a conta.', 1001);
+            }
+            return $retorno['type'];
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'editarSubContaCelCash');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Listar Subcontas.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function buscaSubContaCelCash(): bool|array
+    {
+        $hasCpfCnpj = $this->dados['dado_empresa']['Pessoa']['cpf_cnpj'] ?? $this->dados['dado_responsavel']['Pessoa']['cpf_cnpj'];
+        $cpfCnpj = $this->removerCaracteresNaoNumericDoTexto($hasCpfCnpj);
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->get($this->url['buscaConta'] . "?documents=$cpfCnpj&limit=1&startAt=0", ['headers' => $this->prepareHeaders()]);
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'buscaSubContaCelCash');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Listar Cliente.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function buscaClienteCelCash(): bool|array
+    {
+        $cpfCnpj = $this->removerCaracteresNaoNumericDoTexto($this->dados['pagador']['documento']);
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->get($this->url['criarCliente'] . "?documents=$cpfCnpj&startAt=0&limit=1", ['headers' => $this->prepareHeaders()]);
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'buscaClienteCelCash');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    /**
+     * Verifica Documento SubConta.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function verificaDocumentoObrigatorioSubconta(): bool|array
+    {
+        $client = $this->getGuzzleHttpClient();
+        try {
+            $response = $client->post($this->url['verifyDocument'], ['headers' => $this->prepareHeaders(), 'json' => $this->prepararDadosParaVerificaDocumento()]);
+            $retorno = json_decode($response->getBody()->getContents(), true);
+            if (empty($retorno['type'])) {
+                return throw new Exception('Ocorreu um erro ao criar a conta.', 1001);
+            }
+            return true;
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'verificaDocumentoObrigatorioSubcontaTipoCNPJ');
+            throw new Exception($messageError, 1001);
+        }
+    }
+
+    private function prepararDadosParaVerificaDocumento(): array
+    {
+        return $this->isJuridica() ? $this->montaEnvioDocumentoObrigatorioSubcontaTipoCNPJ() : $this->montaEnvioDocumentoObrigatorioSubcontaTipoCPF();
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function trataRetorno($dados): array
+    {
+        $apiKey = isset($dados['ApiAuth']['galaxId'], $dados['ApiAuth']['galaxHash'])
+            ? $dados['ApiAuth']['galaxId'] . ':' . $dados['ApiAuth']['galaxHash']
+            : $dados['wallet_id'] . ':' . $dados['api_key'];
+        return [
+            'pessoa_id' => $this->dados['dado_empresa']['Pessoa']['id'] ?? $this->dados['dado_responsavel']['Pessoa']['id'],
+            'numero' => $dados['galaxPayId'] ?? $dados['numero'],
+            'digito_verificador' => '0',
+            'api_key' => $apiKey,
+            'api_secret' => $dados['ApiAuth']['publicToken'] ?? $dados['api_key'],
+            'username' => $dados['ApiAuth']['confirmHashWebhook'] ?? $dados['api_key'],
+        ];
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     * @throws GuzzleException
+     */
+    private function prepararDadosParaGerarCobranca(): array
+    {
+        $valorEmCentavos = (int) round($this->dados['valor'] * 100);
+        $info = $this->removerAcentos($this->dados['descricaoDemonstrativo'][0]);
+        $dados = [
+            'myId' => $this->dados['movimentacao_id'],                          //string-255 Id referente no seu sistema, para salvar no cel_cash.
+            'value' => $valorEmCentavos,                                        //int-11 Preço em centavos.
+            'additionalInfo' => $info,                                          //Texto livre dedicado a informações adicionais internas.
+            'payday' => $this->dados['dataVencimento'],                         //Data de vencimento do pagamento.
+            'payedOutsideGalaxPay' => false,                                    //bool Define se a cobrança foi paga fora do sistema do cel_cash. Exemplo: dinheiro, transferência. Use esse campo para que o cel_cash não cobre esse pagamento do seu cliente, já que este já foi pago de outra forma.
+            'mainPaymentMethodId' => 'boleto',                                  //string-30 PaymentMethod.id Id do pagamento principal. Ou seja, quando forem cadastradas novas transações, irá considerar esse pagamento.
+            'Customer' => $this->buscarOuCriarClienteCobrancaAvulsa(),
+            'PaymentMethodBoleto' => $this->montaPaymentMethodBoleto(),
+            'PaymentMethodPix' => $this->montaPaymentMethodPix(),
+        ];
+        $split = $this->montaSplit();
+        if (!empty($split)) {
+            $dados = array_merge($dados, $split);
+        }
+        return $dados;
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     */
+    private function prepararDadosParaGerarSubContaCelCash(): array
+    {
+        return $this->isJuridica() ? $this->montaResponsavelPelaConta() : $this->montaProprietarioDaConta();
+    }
+
+    private function isJuridica(): bool
+    {
+        return !empty(!empty($this->dados['dado_empresa']['responsavel']['tipo_pessoa']) && $this->dados['dado_empresa']['responsavel']['tipo_pessoa'] == 'J');
+    }
+
+    /**
+     * @return bool | array
+     * @throws Exception
+     */
+    private function trataRetornoRemoveCobranca(): bool|array
+    {
+        try {
+            $modelo = $this->getModelItemRessa();
+            $itemremessa = $modelo->find('first', [
+                'conditions' => [
+                    'Itemremessa.id_boleto' => $this->dados['id_boleto'],
+                    'Itemremessa.numero_documento' => $this->dados['numero_documento'],
+                    'Itemremessa.movimentacao_id' => $this->dados['movimentacao_id'],
+                    'Itemremessa.numero_banco' => '509'
+                ],
+                'order' => ['Itemremessa.created' => 'DESC']]);
+            if (!$itemremessa) {
+                throw new Exception('Item de remessa não encontrado para os dados fornecidos.');
+            }
+            $modelo->updateAll(
+                ['Itemremessa.ativo' => 'true'],
+                [
+                    'Itemremessa.id_boleto' => $this->dados['id_boleto'],
+                    'Itemremessa.numero_documento' => $this->dados['numero_documento'],
+                    'Itemremessa.movimentacao_id' => $this->dados['movimentacao_id'],
+                    'Itemremessa.numero_banco' => '509'
+                ]);
+            $itemremessa['Itemremessa'] = array_merge($itemremessa['Itemremessa'], ['tipo' => 'REMESSA']);
+            $itemremessa['Itemremessa']['ativo'] = true;
+            if (!$modelo->save($itemremessa)) {
+                throw new Exception('Erro ao salvar atualização do item de remessa.');
+            }
+            $situacao = 'Pedido de Baixa via API';
+            $modelo->create();
+            $success = $modelo->save([
+                'Itemremessa' => [
+                    'movimentacao_id' => $itemremessa['Itemremessa']['movimentacao_id'],
+                    'situacao' => $situacao,
+                    'identificacao_ocorrencia' => '99',
+                    'numero_documento' => $itemremessa['Itemremessa']['numero_documento'],
+                    'data_ocorrencia' => $itemremessa['Itemremessa']['data_ocorrencia'],
+                    'ativo' => true,
+                    'pessoa_id' => $itemremessa['Itemremessa']['pessoa_id'] ?? null,
+                    'nosso_numero' => $itemremessa['Itemremessa']['nosso_numero'] ?? null,
+                    'cedente' => $itemremessa['Itemremessa']['cedente'] ?? null,
+                    'data_vencimento' => $itemremessa['Itemremessa']['data_vencimento'] ?? null,
+                    'valor' => $itemremessa['Itemremessa']['valor'] ?? null,
+                    'tipo' => 'REMESSA',
+                    'numero_banco' => $itemremessa['Itemremessa']['numero_banco'] ?? null,
+                    'id_boleto' => $itemremessa['Itemremessa']['id_boleto'] ?? null,
+                    'linha_digitavel' => $itemremessa['Itemremessa']['linha_digitavel'] ?? null,
+                    'modified' => date('Y-m-d H:i:s')
+                ]
+            ]);
+            if (!$success) {
+                throw new Exception('Erro ao salvar novo registro de remessa.');
+            }
+            $itemremessaId = $modelo->id;
+            $arquivosItemremessaModel = $this->getModelArquivoItemRessa();
+            $data = [
+                'ArquivosItemremessa' => [
+                    'itemremessa_id' => $itemremessaId,
+                    'arquivo_id' => 0,
+                    'linha' => '1'
+                ]
+            ];
+            if (!$arquivosItemremessaModel->save($data)) {
+                throw new Exception('Erro ao salvar vínculo entre item de remessa e arquivo.');
+            }
+            return true;
+        } catch (Exception $e) {
+            throw new Exception('Erro em trataRetornoRemoveCobranca: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @param $cobranca
+     * @return bool | array
+     * @throws Exception
+     */
+    private function trataRetornoCobranca($cobranca): bool|array
+    {
+        if (!empty($cobranca['Charge']['Customer']['galaxPayId'])) {
+            $this->CriaVinculoClienteConta($this->dados['pagador']['pagador_id'], $cobranca['Charge']['Customer']['galaxPayId'], $this->dados['conta_id']);
+        }
+        $modeloItemRemessa = $this->getModelItemRessa();
+        $itemremessa = $modeloItemRemessa->findByMovimentacaoId($this->dados['movimentacao_id'], true);
+        if (!$itemremessa) {
+            throw new Exception('Item de remessa não encontrado para os dados fornecidos.');
+        }
+        if (!empty($itemremessa['Itemremessa']['linha_digitavel']) &&
+            !empty($itemremessa['Itemremessa']['codigo_barras']) &&
+            !empty($itemremessa['Itemremessa']['ativo'])) {
+            return [
+                'linha_digitavel' => $itemremessa['Itemremessa']['linha_digitavel'],
+                'codigo_barras' => $itemremessa['Itemremessa']['codigo_barras'],
+                'numero_documento' => $cobranca['Itemremessa']['numero_documento'],
+                'nosso_numero' => $cobranca['Itemremessa']['nosso_numero'],
+                'qr_code' => $itemremessa['Itemremessa']['qr_code'],
+            ];
+        }
+        if (!empty($cobranca['Charge']['Transactions'][0]) || !empty($cobranca['Charges'][0]['Transactions'][0])) {
+            try {
+                $transation = $cobranca['Charge']['Transactions'][0] ?? $cobranca['Charges'][0]['Transactions'][0];
+                $itemremessa['Itemremessa'] = array_merge($itemremessa['Itemremessa'], [
+                    'situacao' => 'ENVIADO',
+                    'tipo' => 'REMESSA',
+                    'identificacao_ocorrencia' => '01',
+                    'numero_documento' => $transation['Boleto']['bankNumber'],
+                    'nosso_numero' => $transation['Boleto']['bankNumber'],
+                    'id_boleto' => $transation['galaxPayId'],
+                    'linha_digitavel' => $transation['Boleto']['bankLine'],
+                    'codigo_barras' => $transation['Boleto']['barCode'],
+                    'url_boleto' => $transation['Boleto']['pdf'],
+                    'qr_code' => $transation['Pix']['qrCode'],
+                ]);
+                $modeloItemRemessa->id = $itemremessa['Itemremessa']['id'];
+                $modeloItemRemessa->create();
+                if (!$modeloItemRemessa->save($itemremessa)) {
+                    throw new Exception('Erro ao salvar novo registro de remessa.');
+                }
+                $itemremessaId = $modeloItemRemessa->id;
+                $arquivosItemremessaModel = $this->getModelArquivoItemRessa();
+                $data = [
+                    'ArquivosItemremessa' => [
+                        'itemremessa_id' => $itemremessaId,
+                        'arquivo_id' => 0,
+                        'linha' => '1'
+                    ]
+                ];
+                $arquivosItemremessaModel->create();
+                if (!$arquivosItemremessaModel->save($data)) {
+                    throw new Exception('Erro ao salvar vínculo entre item de remessa e arquivo.');
+                }
+                return [
+                    'numero_documento' => $transation['Boleto']['bankNumber'],
+                    'nosso_numero' => $transation['Boleto']['bankNumber'],
+                    'linha_digitavel' => $transation['Boleto']['bankLine'],
+                    'codigo_barras' => $transation['Boleto']['barCode'],
+                    'url_boleto' => $transation['Boleto']['pdf'],
+                    'qr_code' => $transation['Pix']['qrCode']
+                ];
+            } catch (Exception $e) {
+                $errorMessage = 'Ocorreu um erro ao processar a solicitação.';
+                if ($e->hasResponse()) {
+                    $response = $e->getResponse();
+                    $responseBody = json_decode($response->getBody()->getContents(), true);
+                    if (isset($responseBody['error']['message'])) {
+                        $errorMessage = 'Erro: ' . $responseBody['error']['message'];
+                    }
+                }
+                return throw new Exception($errorMessage . " Linha: {$e->getLine()}", 1001);
+            }
+        }
+        throw new Exception('Não foi possível gerar o boleto no momento. Tente novamente mais tarde.');
+    }
+
+    /**
+     * @param $pessoaId
+     * @param $customerId
+     * @param $contaId
+     * @throws Exception
+     */
+    private function CriaVinculoClienteConta($pessoaId, $customerId, $contaId): void
+    {
+        $clienteContaModel = $this->getModelClienteConta();
+        $contaModel = $this->getModelConta();
+        $contaExiste = $contaModel->find('count', [
+            'conditions' => ['Conta.id' => $contaId]
+        ]);
+        if ($contaExiste == 0) {
+            throw new Exception("Erro: A conta ID $contaId não existe na tabela 'contas'.");
+        }
+        $clienteConta = $clienteContaModel->find('first', [
+            'conditions' => [
+                'ClienteConta.pessoa_id' => $pessoaId,
+                'ClienteConta.conta_id' => $contaId,
+                'ClienteConta.customer_id' => $customerId
+            ]
+        ]);
+        if (!$clienteConta) {
+            $clienteContaModel->create();
+            $clienteContaModel->save([
+                'ClienteConta' => [
+                    'pessoa_id' => $pessoaId,
+                    'conta_id' => $contaId,
+                    'customer_id' => $customerId
+                ]
+            ]);
+        }
+    }
+
+    /**
+     * @param $pessoaId
+     * @param $contaId
+     * @return bool|string
+     */
+    private function getCustomerId($pessoaId, $contaId): bool|string
+    {
+        $clienteContaModel = $this->getModelClienteConta();
+        $clienteConta = $clienteContaModel->find('first', [
+            'conditions' => [
+                'ClienteConta.pessoa_id' => $pessoaId,
+                'ClienteConta.conta_id' => $contaId,
+            ]
+        ]);
+        if (!empty($clienteConta)) {
+            $clienteContaId = $clienteConta['ClienteConta']['customer_id'];
+        } else {
+            $clienteContaId = false;
+        }
+        return $clienteContaId;
+    }
+
+    /**
+     * Monta os headers necessários para requisição.
+     */
+    private function prepareHeaders(): array
+    {
+        return [
+            'Authorization' => 'Bearer ' . $this->token['access_token'],
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json'
+        ];
+    }
+
+    /**
+     * Remove caracteres não numéricos de um CEP.
+     *
+     * @param string $string
+     * @return string
+     */
+    private function removerCaracteresNaoNumericDoTexto(string $string): string
+    {
+        return preg_replace('/\D/', '', $string);
+    }
+
+    /**
+     * Remove os acentos de um texto.
+     *
+     * @param ?string $texto
+     * @return string
+     */
+    private function removerAcentos(?string $texto): string
+    {
+        if (is_null($texto)) return '';
+        return trim(strtr($texto, [
+            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
+            'Á' => 'A', 'À' => 'A', 'Ã' => 'A', 'Â' => 'A', 'Ä' => 'A',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I',
+            'ó' => 'o', 'ò' => 'o', 'õ' => 'o', 'ô' => 'o', 'ö' => 'o',
+            'Ó' => 'O', 'Ò' => 'O', 'Õ' => 'O', 'Ô' => 'O', 'Ö' => 'O',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
+            'ç' => 'c', 'Ç' => 'C'
+        ]));
+    }
+
+    /**
+     * @return bool|object
+     */
+    private function getModelItemRessa(): object|bool
+    {
+        return ClassRegistry::init('R2boletos.Itemremessa');
+    }
+
+    /**
+     * @return bool|object
+     */
+    private function getModelArquivoItemRessa(): object|bool
+    {
+        return ClassRegistry::init('R2boletos.ArquivosItemremessa');
+    }
+
+    /**
+     * @return bool|object
+     */
+    private function getModelClienteConta(): object|bool
+    {
+        return ClassRegistry::init('r2bancos.ClienteConta');
+    }
+
+    /**
+     * @return bool|object
+     */
+    private function getModelConta(): object|bool
+    {
+        return ClassRegistry::init('r2bancos.Conta');
+    }
+
+    /**
+     * @return bool|object
+     */
+    private function getGuzzleHttpClient(): object|bool
+    {
+        return new Client();
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     */
+    private function montaCustumer(): array
+    {
+        $documentoPagador = $this->removerCaracteresNaoNumericDoTexto($this->dados['pagador']['documento']);
+        $cep = $this->removerCaracteresNaoNumericDoTexto($this->dados['pagador']['cep']);
+        $bairro = $this->removerAcentos($this->dados['pagador']['bairro']);
+        $street = $this->removerAcentos($this->dados['pagador']['endereco_unico']);
+        $addressNumber = $this->removerAcentos($this->dados['pagador']['numero']);
+        $complement = $this->removerAcentos($this->dados['pagador']['complemento']);
+        $city = $this->removerAcentos($this->dados['pagador']['cidade']);
+//        $galaxPayId = (int) $this->dados['pagador']['cliente_conta_id'] > 0 ? (int) $this->dados['pagador']['cliente_conta_id'] : null;
+        $emailPagador = $this->dados['pagador']['email'] ?? null;
+        $statePagador = $this->dados['pagador']['uf'] ?? null;
+        return [
+            'myId' => $this->dados['pagador']['pagador_id'], //string-255 Id referente no seu sistema, para salvar no cel_cash. Para utilizar um existente preencha apenas este campo. Caso queira atualizar algum dado, informe apenas os campos que deseja.
+//            'galaxPayId' => $galaxPayId,                     //int-11 ID do cliente no cel_cash. Para utilizar um cliente existente preencha este campo. Para cadastrar um cliente novo, esse campo NÃO pode ser passado, pois é gerado pelo cel_cash.
+            'name' => $this->dados['pagador']['nome'],       //string-255 Nome ou razão social do cliente.
+            'document' => $documentoPagador,                 //string-14 CPF OU CNPJ do cliente. Apenas números.
+            'emails' => [
+                $emailPagador                                //array de string-255 Emails do cliente. Separe cada email por vírgula.
+            ],
+//            'phones' => [
+//                3140201512,
+//                31983890110
+//            ],
+            'Address' => [
+                'zipCode' => $cep,                           //string-8 CEP. Informe apenas números.
+                'street' => $street,
+                'number' => $addressNumber,
+                'complement' => $complement,
+                'neighborhood' => $bairro,
+                'city' => $city,
+                'state' => $statePagador
+            ]
+        ];
+    }
+
+    /**
+     * @return array
+     */
+    private function montaPaymentMethodBoleto(): array
+    {
+        $instructions = '';
+        foreach ($this->dados['descricaoDemonstrativo'] as $descricaoDemonstrativo) {
+            if (empty($descricaoDemonstrativo)) continue;
+            $instructions .= $this->removerAcentos($descricaoDemonstrativo) . "\n";
+        }
+        $numeroDocumento = $this->dados['numeroDocumento'] ?? $this->dados['numero_documento'];
+        $instruction = [
+            'instructions' => $instructions,                    //string Instruções do boleto. Irá ser acrescentado na área 'Referente a' do boleto. Para quebrar linha utilize "\n", sendo que será exibido no máximo 3 linhas. Caso não informado será utilizado o padrão definido no sistema.
+            'deadlineDays' => 1,                                //int Quantidade de dias que o boleto pode ser pago após o vencimento. Caso não informado será utilizado o padrão definido no sistema. Valores válidos de 0 a 59.
+            'documentNumber' => $numeroDocumento,               //string Irá ser acrescentado na área 'Nº Documento' do boleto. Caso não informado será utilizado o padrão definido no sistema.
+//            'Agreement' => [                                    //Convênio próprio no banco emissor
+//                'name' => 'Lorem ipsum',                        //string Nome do beneficiário final/sacador avalista
+//                'document' => '012345678909'                    //string Documento do beneficiário final/sacador avalista
+//            ]
+        ];
+        if (!empty($this->dados['multa_em_percentual']) && $this->dados['multa_em_percentual'] >= '0.01') {
+            $instruction['fine'] = (double) $this->dados['multa_em_percentual'];        //int Percentual de multa, com dois decimais sem o separador. Caso não informado será utilizado o percentual definido no sistema.
+        }
+        if (!empty($this->dados['mora_dia_em_percentual']) && $this->dados['mora_dia_em_percentual'] >= '0.01') {
+            $instruction['interest'] = (double) $this->dados['mora_dia_em_percentual']; //int Percentual de juros, com dois decimais sem o separador. Caso não informado será utilizado o percentual definido no sistema.
+        }
+        return $instruction;
+    }
+
+    /**
+     * @return array
+     */
+    private function montaPaymentMethodPix(): array
+    {
+        $instructions = $this->removerAcentos($this->dados['descricaoDemonstrativo'][0]);
+        $instruction = [
+            'instructions' => $instructions,                                            //string Instruções do QR Code Pix. Informação exibida nos detalhes do QR Code. Caso não informado será utilizado o padrão definido na plataforma.
+            'Deadline' => [                                                             //Expiração do QR Code. Caso não informado, será utilizado o padrão definido no sistema.
+                'type' => 'days',                                                       //string-255 Tipo da expiração do QR Code.
+                'value' => 60                                                           //int-11 Valor da expiração do QR Code (em dias ou minutos).
+            ]
+        ];
+        if (!empty($this->dados['multa_em_percentual']) && $this->dados['multa_em_percentual'] >= '0.01') {
+            $instruction['fine'] = (double) $this->dados['multa_em_percentual'];        //int Percentual de multa, com dois decimais sem o separador. Caso não informado será utilizado o percentual definido no sistema.
+        }
+        if (!empty($this->dados['mora_dia_em_percentual']) && $this->dados['mora_dia_em_percentual'] >= '0.01') {
+            $instruction['interest'] = (double) $this->dados['mora_dia_em_percentual']; //int Percentual de juros, com dois decimais sem o separador. Caso não informado será utilizado o percentual definido no sistema.
+        }
+        return $instruction;
+    }
+
+    private function montaDebtor()
+    {
+        $documentoPagador = $this->removerCaracteresNaoNumericDoTexto($this->dados['pagador']['documento']);
+        $cep = $this->removerCaracteresNaoNumericDoTexto($this->dados['pagador']['cep']);
+        $bairro = $this->removerAcentos($this->dados['pagador']['bairro']);
+        $addressNumber = $this->removerAcentos($this->dados['pagador']['numero']);
+        $complement = $this->removerAcentos($this->dados['pagador']['complemento']);
+        $address = $this->removerAcentos($this->dados['pagador']['endereco']);
+        return [
+            'name' => $this->dados['pagador']['nome'],
+            'document' => $documentoPagador,
+            'postalCode' => $cep,
+            'publicArea' => $address,
+            'number' => $addressNumber,
+            'complement' => $complement,
+            'neighborhood' => $bairro,
+            'city' => $this->dados['pagador']['cidade'],
+            'state' => $this->dados['pagador']['uf']
+        ];
+    }
+
+    private function montaReceiver()
+    {
+        $documentoBeneficiario = $this->removerCaracteresNaoNumericDoTexto($this->dados['beneficiario']['documento']);
+        return ['document' => $documentoBeneficiario, 'account' => $this->dados['conta']];
+    }
+
+    /**
+     * @return array{discount: array, fine: float, interest: float}
+     */
+    private function montaInstruction(): array
+    {
+        $instruction = [];
+        if (!empty($this->dados['multa_em_percentual']) && $this->dados['multa_em_percentual'] >= '0.01') {
+            $instruction['fine'] = (double) $this->dados['multa_em_percentual'];
+        }
+        if (!empty($this->dados['mora_dia_em_percentual']) && $this->dados['mora_dia_em_percentual'] >= '0.01') {
+            $instruction['interest'] = (double) $this->dados['mora_dia_em_percentual'];
+        }
+        if (!empty($this->dados['desconto'])) {
+            $instruction['discount'] = [
+                'amount' => $this->dados['desconto'],
+                'modality' => 'fixed',
+                'limitDate' => '2025-12-20T00:00:00.0000000'
+            ];
+        }
+        return $instruction;
+    }
+
+    /**
+     * @return array
+     */
+    private function montaSplit(): array
+    {
+        $rateio = $this->dados['rateio'] ?? [];
+        if (empty($rateio) || !isset($rateio[0])) {
+            return [];
+        }
+
+        $companies = [];
+        foreach ($rateio as $valor) {
+            $galaxPayId = (int) $valor['conta_repasse'];
+            $companies[$galaxPayId] = [
+                'galaxPayId' => 18958,                   //int-11 Id no cel_cash da empresa destinatária.
+                'value' => (int) 5000              //int-11 Valor a ser dividido. Enviar valor em centavos ou percentual com duas casas decimais sem dígito separador
+            ];
+        }
+        return [
+            'Split' => [
+                'all' => [
+                    'type' => $rateio[0]['type'] ?? 'percent',   //string-30 Tipo da divisão. percent = Percentual (%), fixed = Valor fixo (R$).
+                    'Companies' => $companies
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Verificar Documento Asaas.
+     *
+     * @return array|true
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function verificarSeExisteContaParaCpfCnpj(): bool|array
+    {
+        $hasCpfCnpj = $this->dados['dado_empresa']['Pessoa']['cpf_cnpj'] ?? $this->dados['dado_responsavel']['Pessoa']['cpf_cnpj'];
+        $cpfCnpj = $this->removerCaracteresNaoNumericDoTexto($hasCpfCnpj);
+        $wallet = ClassRegistry::init('R2bancos.Wallet');
+        $cateira = $wallet->find('first', ['conditions' => ['Wallet.cpf_cnpj' => $cpfCnpj]]);
+        if (!empty($cateira['Wallet'])) {
+            return $cateira['Wallet'];
+        }
+        $hasSubContaCelcoin = $this->buscaSubContaCelCash();
+        if (!empty($hasSubContaCelcoin['SubAccounts'][0])) {
+            return $hasSubContaCelcoin['SubAccounts'][0];
+        }
+        return false;
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     */
+    private function montaResponsavelPelaConta(): array
+    {
+        if (!empty($this->dados['dado_empresa']['Pessoa']['foto'])) {
+            $logoFoto = (new logofoto($this->dados['dado_empresa']['Pessoa']['foto']))->getEnderecoDaLogoFoto();
+            $url = isR2Aplicativos::getUrlSistema() . '/' . str_replace('/home', '', $logoFoto);
+            $conteudoImagem = file_get_contents($url);
+            if ($conteudoImagem !== false) {
+                $base64 = base64_encode($conteudoImagem);
+                $base64LogoLimpo = preg_replace('/^data:.*;base64,/', '', $base64);
+            }
+        }
+        $cnpj = R2CnpjService::cnpj($this->dados['dado_empresa']['Pessoa']['cpf_cnpj']);
+        $typeCompany = 'ltda';
+//        if (!empty($cnpj['all']['natureza_juridica']['codigo']))
+//            $typeCompany = $this->typeCompany($cnpj['all']['natureza_juridica']['codigo']);
+        $cnab = $cnpj['filial'][0]['cnae_fiscal_principal'];
+        $razaoSocial = $this->removerAcentos($cnpj['all']['razao_social_nome_empresarial']);
+        $name = $this->removerAcentos($this->dados['dado_empresa']['Pessoa']['name']);
+        $email = $this->removerAcentos($this->dados['dado_empresa']['Pessoa']['email']);
+        $softDescriptor = $this->removerAcentos($this->dados['dado_empresa']['responsavel']['softDescriptor']);
+        if (!empty($softDescriptor) && mb_strlen($softDescriptor) > 0) {
+            $softDescriptor = mb_substr($softDescriptor, 0, 17);
+        }
+        $documento = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_empresa']['Pessoa']['cpf_cnpj']);
+        $cep = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_empresa']['Endereco']['cep']);
+        $documentoResponsavel = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_empresa']['responsavel']['Pessoa']['cpf_cnpj']);
+        $numeroTelefone = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_empresa']['Telefone'][0]['numero']);
+        $bairro = $this->removerAcentos($this->dados['dado_empresa']['Endereco']['bairro']);
+        $addressNumber = $this->removerAcentos($this->dados['dado_empresa']['Endereco']['numero']);
+        $complement = $this->removerAcentos($this->dados['dado_empresa']['Endereco']['complemento'] ?? '');
+        $address = $this->removerAcentos($this->dados['dado_empresa']['Endereco']['name']);
+        $city = $this->removerAcentos($this->dados['dado_empresa']['Endereco']['Cidade']['name']);
+        $state = $this->removerAcentos($this->dados['dado_empresa']['Endereco']['Cidade']['Estado']['sigla']);
+        return [
+            'name' => $name,
+            'document' => $documento,
+            'nameDisplay' => $razaoSocial,
+            'phone' => $numeroTelefone,
+            'emailContact' => $email,
+            'logo' => $base64LogoLimpo ?? null,
+            'responsibleDocument' => $documentoResponsavel,
+            'typeCompany' => $typeCompany,
+            'canAccessPlatform' => false,
+            'softDescriptor' => $softDescriptor,
+            'cnae' => $cnab['codigo'],
+            'Address' => [
+                'zipCode' => $cep,
+                'street' => $address,
+                'number' => $addressNumber,
+                'complement' => $complement,
+                'neighborhood' => $bairro,
+                'city' => $city,
+                'state' => $state
+            ]
+        ];
+    }
+
+    /**
+     * @return array
+     */
+    private function montaDadosEditarConta(): array
+    {
+        if (!empty($this->dados['foto'])) {
+            $logoFoto = (new logofoto($this->dados['foto']))->getEnderecoDaLogoFoto();
+            $url = isR2Aplicativos::getUrlSistema() . '/' . str_replace('/home', '', $logoFoto);
+            $conteudoImagem = @file_get_contents($url);
+            if ($conteudoImagem !== false) {
+                $base64 = base64_encode($conteudoImagem);
+                $base64LogoLimpo = preg_replace('/^data:.*;base64,/', '', $base64);
+            }
+        }
+        $cep = !empty($this->dados['Endereco']['cep']) ? $this->removerCaracteresNaoNumericDoTexto($this->dados['Endereco']['cep']) : null;
+        $bairro = !empty($this->dados['Endereco']['bairro']) ? $this->removerAcentos($this->dados['Endereco']['bairro']) : null;
+        $addressNumber = !empty($this->dados['Endereco']['numero']) ? $this->removerAcentos($this->dados['Endereco']['numero']) : null;
+        $complement = !empty($this->dados['Endereco']['complemento']) ? $this->removerAcentos($this->dados['Endereco']['complemento']) : null;
+        $address = !empty($this->dados['Endereco']['name']) ? $this->removerAcentos($this->dados['Endereco']['name']) : null;
+        $city = !empty($this->dados['Endereco']['Cidade']['name']) ? $this->removerAcentos($this->dados['Endereco']['Cidade']['name']) : null;
+        $state = !empty($this->dados['Endereco']['Cidade']['Estado']['sigla']) ? $this->removerAcentos($this->dados['Endereco']['Cidade']['Estado']['sigla']) : null;
+        $dados = [
+            'Address' => [
+                'zipCode' => $cep,
+                'street' => $address,
+                'number' => $addressNumber,
+                'complement' => $complement,
+                'neighborhood' => $bairro,
+                'city' => $city,
+                'state' => $state
+            ],
+            'logo' => $base64LogoLimpo ?? null
+        ];
+        $dados['Address'] = array_filter($dados['Address'], function ($value) {
+            return !is_null($value);
+        });
+        return array_filter($dados, function ($value) {
+            return !is_null($value);
+        });
+    }
+
+    /**
+     * @return array
+     */
+    private function montaEnvioDocumentoObrigatorioSubcontaTipoCNPJ(): array
+    {
+        $valorEmCentavos = (int) round($this->dados['Conta']['monthlyIncome'] * 100);
+        $documentoAssociado = $this->removerCaracteresNaoNumericDoTexto($this->dados['Associate'][0]['document']);
+        return [
+            'Fields' => [
+                'monthlyIncome' => $valorEmCentavos,
+                'about' => $this->dados['Conta']['about'],
+                'socialMediaLink' => $this->dados['Conta']['socialMediaLink']
+            ],
+            'Associate' => [
+                [
+                    'document' => $documentoAssociado,
+                    'name' => $this->dados['Associate'][0]['name'],
+                    'motherName' => $this->dados['Associate'][0]['motherName'],
+                    'birthDate' => $this->dados['Associate'][0]['birthDate'] ?? '2000-06-04',
+                    'type' => $this->dados['Associate'][0]['type']
+                ]
+            ],
+            'Documents' => [
+                'Company' => [
+                    'lastContract' => $this->dados['Documents']['Company']['lastContract'],
+                    'cnpjCard' => $this->dados['Documents']['Company']['cnpjCard'],
+                    'electionRecord' => $this->dados['Documents']['Company']['electionRecord'],
+                    'statute' => $this->dados['Documents']['Company']['statute']
+                ],
+                'Personal' => [
+                    'CNH' => [
+                        'selfie' => $this->dados['Documents']['Personal']['CNH']['rgSelfie'],
+                        'picture' => [
+                            $this->dados['Documents']['Personal']['CNH']['rgFront'],
+                            $this->dados['Documents']['Personal']['CNH']['rgBack']
+                        ]
+                    ],
+                    'RG' => [
+                        'selfie' => $this->dados['Documents']['Personal']['RG']['rgSelfie'],
+                        'front' => $this->dados['Documents']['Personal']['RG']['rgFront'],
+                        'back' => $this->dados['Documents']['Personal']['RG']['rgBack']
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * @return array
+     */
+    private function montaEnvioDocumentoObrigatorioSubcontaTipoCPF(): array
+    {
+        $valorEmCentavos = (int) round($this->dados['Conta']['monthlyIncome'] * 100);
+        $dataNascimentoIso = DateTime::createFromFormat('d/m/Y',$this->dados['Conta']['birthDate'])->format('Y-m-d');
+        return [
+            'Fields' => [
+                'motherName' => $this->dados['Conta']['motherName'],
+                'birthDate' => $dataNascimentoIso,
+                'monthlyIncome' => $valorEmCentavos,
+                'about' => $this->dados['Conta']['about'],
+                'socialMediaLink' => $this->dados['Conta']['socialMediaLink']
+            ],
+            'Documents' => [
+                'Personal' => [
+                    'CNH' => [
+                        'selfie' => $this->dados['Documents']['Personal']['CNH']['selfie'],
+                        'picture' => [
+                            $this->dados['Documents']['Personal']['CNH']['front'],
+                            $this->dados['Documents']['Personal']['CNH']['back']
+                        ],
+                        'address' => $this->dados['Documents']['Personal']['CNH']['address']
+                    ],
+                    'RG' => [
+                        'selfie' => $this->dados['Documents']['Personal']['RG']['selfie'],
+                        'front' => $this->dados['Documents']['Personal']['RG']['front'],
+                        'back' => $this->dados['Documents']['Personal']['RG']['back'],
+                        'address' => $this->dados['Documents']['Personal']['RG']['address']
+                    ]
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * @return array
+     * @throws Exception
+     */
+    private function montaProprietarioDaConta(): array
+    {
+        $name = $this->removerAcentos($this->dados['dado_responsavel']['Pessoa']['name']);
+        $motherName = $this->removerAcentos($this->dados['dado_responsavel']['Fisica']['mae']);
+        $parterName = $this->removerAcentos($this->dados['dado_responsavel']['Fisica']['pai']);
+        $email = $this->removerAcentos($this->dados['dado_responsavel']['Pessoa']['email']);
+        $documento = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_responsavel']['Pessoa']['cpf_cnpj']);
+        $cep = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_responsavel']['Endereco']['cep']);
+        $numeroTelefone = $this->removerCaracteresNaoNumericDoTexto($this->dados['dado_responsavel']['Telefone'][0]['numero']);
+        $bairro = $this->removerAcentos($this->dados['dado_responsavel']['Endereco']['bairro']);
+        $addressNumber = $this->removerAcentos($this->dados['dado_responsavel']['Endereco']['numero']);
+        $comprements = strlen(trim($this->dados['dado_responsavel']['Endereco']['complemento'])) > 0 ? $this->dados['dado_responsavel']['Endereco']['complemento'] : $this->dados['dado_responsavel']['Endereco']['name'];
+        $complement = $this->removerAcentos($comprements);
+        $address = $this->removerAcentos($this->dados['dado_responsavel']['Endereco']['name']);
+        $city = $this->removerAcentos($this->dados['dado_responsavel']['Endereco']['Cidade']['name']);
+        $state = $this->removerAcentos($this->dados['dado_responsavel']['Endereco']['Cidade']['Estado']['sigla']);
+        $softDescriptor = $this->removerAcentos($this->dados['dado_responsavel']['responsavel']['softDescriptor']);
+        if (!empty($softDescriptor) && mb_strlen($softDescriptor) > 0) {
+            $softDescriptor = mb_substr($softDescriptor, 0, 17);
+        }
+        return [
+            'name' => $name,
+            'document' => $documento,
+            'phone' => $numeroTelefone,
+            'emailContact' => $email,
+            'motherName' => $motherName,
+            'parterName' => $parterName,
+            'birthDate' => $this->dados['dado_responsavel']['Fisica']['data_nascimento'],
+            'canAccessPlatform' => false,
+            'softDescriptor' => $softDescriptor,
+            'Professional' => [
+                'internalName' => 'others',
+                'inscription' => '14525'
+            ],
+            'Address' => [
+                'zipCode' => $cep,
+                'street' => $address,
+                'number' => $addressNumber,
+                'complement' => $complement,
+                'neighborhood' => $bairro,
+                'city' => $city,
+                'state' => $state
+            ]
+        ];
+    }
+
+    /**
+     * @param $type
+     * @return string|null
+     */
+    private function typeCompany($type): ?string
+    {
+        $categorias = [
+            'ltda' => ['2062', '2240'],
+            'eireli' => ['2305', '2313'],
+            'association' => ['3069', '3204', '3212', '3301', '3999'],
+            'individualEntrepreneur' => ['2135'],
+            'mei' => ['2135'],
+            'sa' => ['2046', '2054'],
+            'slu' => ['2321']
+        ];
+        $chaveEncontrada = null;
+        foreach ($categorias as $chave => $codigos) {
+            if (in_array($type, $codigos)) {
+                $chaveEncontrada = $chave;
+                break;
+            }
+        }
+        return $chaveEncontrada;
+    }
+
+    /**
+     * @param ClientException $e
+     * @param string $mensagemPadrao
+     * @param string $metodo
+     * @return string
+     */
+    private function tratarErroClientException(ClientException $e, string $mensagemPadrao, string $metodo): string
+    {
+        $error = json_decode($e->getResponse()->getBody()->getContents(), true);
+        $mensagem = "Erro em $metodo: ";
+        if (isset($error['error']['message'])) {
+            $mensagem .= $error['error']['message'];
+            if (!empty($error['error']['details']) && is_array($error['error']['details'])) {
+                $detalhes = [];
+                foreach ($error['error']['details'] as $campo => $mensagens) {
+                    foreach ((array) $mensagens as $mensagemDetalhe) {
+                        $detalhes[] = "$campo: $mensagemDetalhe";
+                    }
+                }
+                $mensagem .= ' Detalhes: ' . implode(' | ', $detalhes);
+            }
+            return $mensagem;
+        }
+        return $mensagem . $mensagemPadrao;
+    }
+
+    /**
+     * @param $galaxIdAndGalaxHash
+     * @return void
+     * @throws Exception
+     */
+    private function registraWebhook($galaxIdAndGalaxHash): void
+    {
+        $configBD = $_SESSION['Auth']['User']['empresa_id'];
+        $url = getenv('URL_PJBANK') . "/webhook?system=celcoin&configuracaoBD=$configBD";
+        try {
+            $client = $this->getGuzzleHttpClient();
+            $token = json_decode($client->post($this->url['authDevCach'], [
+                'headers' => ['Authorization' => 'Basic ' . base64_encode($galaxIdAndGalaxHash), 'Content-Type' => 'application/json'],
+                'json' => ['grant_type' => 'authorization_code', 'scope' => 'webhooks.write']])->getBody(), true);
+            $client->put($this->url['webhook'], [
+                'headers' => ['Authorization' => 'Bearer ' . $token, 'Content-Type' => 'application/json', 'Accept' => 'application/json'],
+                'json' => ['url' => $url, 'events' => ['transaction.updateStatus']]]);
+        } catch (ClientException $e) {
+            $messageError = $this->tratarErroClientException($e, 'Ocorreu um erro ao processar a solicitação.', 'registraWebhook');
+            throw new Exception($messageError, 1001);
+        }
+    }
+}
