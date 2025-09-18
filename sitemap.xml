@@ -1,128 +1,680 @@
 <?php
-function debug($data)
-{
-    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
-    $caller = $backtrace[0];
-    $file = $caller['file'] ?? 'unknown';
-    $line = $caller['line'] ?? 'unknown';
+declare(strict_types=1);
 
-    // Gerar um ID único para cada botão de cópia
-    $uniqueId = uniqid('debug-btn-');
-    $uniqueTextId = uniqid('debug-text-');
+/**
+ * Debug moderno (à prova de OOM):
+ * - Header com label, arquivo:linha (EXATA do callsite), tempo e memória
+ * - Abas: Variável (default), Percurso, Trecho, Server
+ * - Botões de copiar (JSON, texto, stack, trecho) com limite
+ * - Trecho de arquivo com highlight DA LINHA ONDE debug() FOI CHAMADO
+ * - Saída CLI limitada (sem estourar memória)
+ *
+ * Ajustes por ENV:
+ *   R2DBG_MAX_DEPTH, R2DBG_MAX_ITEMS, R2DBG_MAX_STRING, R2DBG_MAX_CLIP_BYTES
+ */
 
-    // Converter array/objeto para formato PHP
-    $formattedData = formatarArrayPHP($data);
-    $dataJson = htmlspecialchars($formattedData);
+if (!function_exists('debug')) {
+    function debug(mixed $variavel, bool $stop = true, ?string $label = 'debug'): void
+    {
+        $isCli = (PHP_SAPI === 'cli');
+        $cfg   = r2dbg_cfg();
 
-    echo '<div style="
-        background: #282c34; 
-        color: #abb2bf; 
-        padding: 12px; 
-        font-family: Consolas, Monaco, monospace; 
-        border-radius: 6px; 
-        margin: 15px 0; 
-        box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.2);
-        max-width: 85%;
-        font-size: 12px;
-        overflow-x: auto;
-        position: relative;
-    ">';
+        // Backtrace bruto (sem args) e "origem": frame do próprio debug (self)
+        $btAll = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+        [$caller, $btTailFromOrigin] = r2dbg_pick_origin('self', $btAll);
+        $bt = r2dbg_clean_trace($btTailFromOrigin);
 
-    // Exibir arquivo e linha
-    echo "<div style='color: #e06c75; font-weight: bold; margin-bottom: 6px;'>
-            📌 Debug chamado em: <span style='color: #61afef;'>$file</span> 
-            na linha <span style='color: #98c379;'>$line</span>
-          </div>";
+        // Origem & tempo/memória
+        $fileAbs = $caller['file'] ?? 'unknown';
+        $line    = (int)($caller['line'] ?? 0);
+        $fileRel = shorten_path($fileAbs);
 
-    echo "<div style='border-bottom: 1px solid #444; margin: 8px 0;'></div>";
+        $start = $_SERVER['REQUEST_TIME_FLOAT'] ?? ($_SERVER['REQUEST_TIME'] ?? microtime(true));
+        $elapsedMs = number_format((microtime(true) - (float)$start) * 1000, 3, '.', '');
+        $memNow  = format_bytes(memory_get_usage(true));
+        $memPeak = format_bytes(memory_get_peak_usage(true));
 
-    // Exibir tipo do dado
-    echo "<strong style='color: #e5c07b;'>Tipo:</strong> <span style='color: #56b6c2;'>" . gettype($data) . '</span><br><br>';
+        // Representações para copiar (LIMITADAS)
+        $jsonLimited = json_safe_limited($variavel, $cfg);
+        [$b64Json]   = r2dbg_make_clip($jsonLimited, $cfg['maxClipboardBytes']);
+        $stackText   = format_stack_text($bt);
+        [$b64Stack]  = r2dbg_make_clip($stackText,  $cfg['maxClipboardBytes']);
 
-    // Botão copiar
-    echo '<button id="' . $uniqueId . '" onclick="copiarDebug(\'' . $uniqueTextId . '\', \'' . $uniqueId . '\')" style="
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: #1e1e1e;
-        color: #fff;
-        border: none;
-        padding: 5px 8px;
-        font-size: 11px;
-        cursor: pointer;
-        border-radius: 4px;
-    ">Copiar</button>';
+        if ($isCli) {
+            // ===== CLI =====
+            $hdr = sprintf(
+                "[DEBUG]%s %s:%d  ⏱ %sms  📦 %s (peak %s)\n",
+                $label ? " {$label}" : '',
+                $fileRel,
+                $line,
+                $elapsedMs,
+                $memNow,
+                $memPeak
+            );
+            if (defined('STDERR')) { fwrite(STDERR, $hdr); } else { echo $hdr; }
 
-    // Área de exibição dos dados
-    echo '<pre id="' . $uniqueTextId . '" style="
-        background: #1e1e1e; 
-        color: #dcdcdc; 
-        padding: 8px; 
-        border-radius: 4px; 
-        font-size: 11px;
-        overflow-x: auto;
-    ">' . $dataJson . '</pre>';
+            $cliDump = r2dbg_dump_text_limited($variavel, $cfg);
+            $stackBlock = "-> Percurso:\n" . $stackText . "\n";
 
-    // Script de cópia
-    echo '<script>
-        function copiarDebug(debugTextId, buttonId) {
-            var texto = document.getElementById(debugTextId).innerText;
-            navigator.clipboard.writeText(texto).then(() => {
-                // Mudar o texto do botão para "Copiado"
-                document.getElementById(buttonId).innerText = "Copiado";
-                
-                // Voltar ao estado original após 2 segundos
-                setTimeout(function() {
-                    document.getElementById(buttonId).innerText = "Copiar";
-                }, 2000);
-            }).catch(() => {
-                // Caso ocorra algum erro, deixar o texto original no botão
-                document.getElementById(buttonId).innerText = "Erro!";
-                setTimeout(function() {
-                    document.getElementById(buttonId).innerText = "Copiar";
-                }, 2000);
-            });
+            if (defined('STDOUT')) { fwrite(STDOUT, $cliDump . PHP_EOL . $stackBlock); }
+            else { echo $cliDump . PHP_EOL . $stackBlock; }
+
+            if ($stop) { exit(1); }
+            return;
         }
-    </script>';
 
-    echo '</div>';
-}
+        // ===== HTML =====
+        $id = 'r2dbg_' . bin2hex(random_bytes(6));
+        [$snippetHtml, $snippetRaw] = read_source_snippet($fileAbs, $line, 6);
+        [$b64Src] = r2dbg_make_clip($snippetRaw, $cfg['maxClipboardBytes']);
+        $phpLimited = r2dbg_export_php_limited($variavel, $cfg);
+        [$b64Php]   = r2dbg_make_clip($phpLimited, $cfg['maxClipboardBytes']);
 
-// Função para formatar array/objeto no estilo PHP
-function formatarArrayPHP($data, $indent = 1)
-{
-    if (is_array($data) || is_object($data)) {
-        $formatted = "[\n";
-        foreach ($data as $key => $value) {
-            $formatted .= str_repeat('    ', $indent);
-            $formatted .= is_string($key) ? "\"$key\"" : $key;
-            $formatted .= ' => ';
-            if (is_array($value) || is_object($value)) {
-                $formatted .= formatarArrayPHP($value, $indent + 1);
-            } elseif (is_string($value)) {
-                $formatted .= "\"$value\"";
-            } elseif ($value === null) {
-                $formatted .= 'null';
-            } else {
-                $formatted .= $value;
-            }
-            $formatted .= ",\n";
-        }
-        $formatted .= str_repeat('    ', $indent - 1) . ']';
-        return $formatted;
+        inject_r2_debug_assets_once();
+
+        $labelHTML = htmlspecialchars($label ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $fileHTML  = htmlspecialchars($fileRel, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        // desabilita botões quando > limite (string vazia = desativado pelo JS)
+        $dJson  = $b64Json  ? '' : ' disabled title="Muito grande para copiar"';
+        $dStack = $b64Stack ? '' : ' disabled title="Muito grande para copiar"';
+        $dSrc   = $b64Src   ? '' : ' disabled title="Muito grande para copiar"';
+        $dPhp  = $b64Php  ? '' : ' disabled title="Muito grande para copiar"';
+
+
+        echo <<<HTML
+<div id="{$id}" class="r2dbg" data-r2dbg>
+  <div class="r2dbg__header">
+    <div class="r2dbg__title">
+      <strong>⚙️ Debug</strong>
+      <span class="r2dbg__label">{$labelHTML}</span>
+    </div>
+    <div class="r2dbg__meta">
+      <span class="r2dbg__crumbs">{$fileHTML}:<b>{$line}</b></span>
+      <span>• ⏱ {$elapsedMs} ms</span>
+      <span>• 📦 {$memNow} (peak {$memPeak})</span>
+    </div>
+    <div class="r2dbg__actions">
+      <button class="r2dbg__btn" data-r2clip="{$b64Json}" {$dJson}>Copiar JSON</button>
+      <button class="r2dbg__btn" data-r2clip="{$b64Php}"  {$dPhp}>Copiar PHP</button>
+      <button class="r2dbg__btn" data-r2clip="{$b64Stack}" {$dStack}>Copiar stack</button>
+      <button class="r2dbg__btn" data-r2clip="{$b64Src}" {$dSrc}>Copiar trecho</button>
+    </div>
+  </div>
+
+  <div class="r2dbg__tabs" role="tablist" aria-label="Debug Tabs">
+    <button class="r2dbg__tab is-active" aria-selected="true" data-tab="dump"   role="tab">Variável</button>
+    <button class="r2dbg__tab"           aria-selected="false" data-tab="stack"  role="tab">Percurso</button>
+    <button class="r2dbg__tab"           aria-selected="false" data-tab="source" role="tab">Trecho</button>
+    <button class="r2dbg__tab"           aria-selected="false" data-tab="server" role="tab">Server</button>
+  </div>
+
+  <div class="r2dbg__panes">
+    <section class="r2dbg__pane is-active" data-pane="dump">
+      <div class="r2dbg__dump">
+HTML;
+
+        // Dump HTML LIMITADO
+        echo r2dbg_dump_html_limited($variavel, $cfg);
+
+        // Stack visual + breadcrumb
+        $stackItemsHtml = format_stack_html($bt);
+        $breadcrumb     = format_stack_breadcrumb($bt);
+
+        // Server info (safe)
+        $serverSafe = htmlspecialchars(var_export([
+            'GET'     => $_GET ?? null,
+            'POST'    => $_POST ?? null,
+            'COOKIE'  => $_COOKIE ?? null,
+            'SESSION' => isset($_SESSION) ? $_SESSION : null,
+            'SERVER'  => $_SERVER ?? null,
+        ], true), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        echo <<<HTML
+      </div>
+    </section>
+
+    <section class="r2dbg__pane" data-pane="stack">
+      <div class="r2dbg__breadcrumb" title="Percurso até o debug">{$breadcrumb}</div>
+      <ol class="r2dbg__stack">
+        {$stackItemsHtml}
+      </ol>
+    </section>
+
+    <section class="r2dbg__pane" data-pane="source">
+      <div class="r2dbg__source">
+        {$snippetHtml}
+      </div>
+    </section>
+
+    <section class="r2dbg__pane" data-pane="server">
+      <pre class="r2dbg__pre">{$serverSafe}</pre>
+    </section>
+  </div>
+</div>
+HTML;
+
+        if ($stop) { exit; }
+        return;
     }
-    return var_export($data, true);
+}
+
+if (!function_exists('r2dbg_export_php_limited')) {
+    function r2dbg_export_php_limited(mixed $value, array $cfg): string
+    {
+        // Limita antes para evitar OOM e tornar objetos exportáveis
+        $preview = r2dbg_limit_value($value, $cfg['maxDepth'], $cfg['maxItems'], $cfg['maxString']);
+
+        try {
+            $code = var_export($preview, true); // array(...) válido em PHP
+        } catch (Throwable) {
+            $code = '/* não exportável em PHP */';
+        }
+
+        // Mesma política de corte dos outros dumps
+        if (strlen($code) > $cfg['maxClipboardBytes']) {
+            $code = substr($code, 0, $cfg['maxClipboardBytes'] - 64) . "\n/* … [TRUNCADO] */";
+        }
+
+        return $code;
+    }
 }
 
 
-
-function tempo_execucao()
-{
-    $inicio = $_SERVER['REQUEST_TIME'];
-    $fim = microtime(true);
-    $total = $fim - $inicio;
-    return 'Tempo de Execução: ' . number_format($total, 5) . ' ms';
+/**
+ * Versão "bruta" reaproveitando a UI (var_dump capturado)
+ */
+if (!function_exists('debug_pre')) {
+    function debug_pre(mixed $variavel, bool $stop = true, ?string $label = 'var_dump'): void
+    {
+        ob_start();
+        var_dump($variavel);
+        $raw = ob_get_clean() ?: '';
+        debug($raw, $stop, $label);
+    }
 }
+
+/* --------------- Config/limites e dumps limitados --------------- */
+
+if (!function_exists('r2dbg_cfg')) {
+    function r2dbg_cfg(): array
+    {
+        return [
+            'maxDepth'          => (int)($_ENV['R2DBG_MAX_DEPTH']          ?? getenv('R2DBG_MAX_DEPTH')          ?: 3),
+            'maxItems'          => (int)($_ENV['R2DBG_MAX_ITEMS']          ?? getenv('R2DBG_MAX_ITEMS')          ?: 200),
+            'maxString'         => (int)($_ENV['R2DBG_MAX_STRING']         ?? getenv('R2DBG_MAX_STRING')         ?: 8000),
+            'maxClipboardBytes' => (int)($_ENV['R2DBG_MAX_CLIP_BYTES']     ?? getenv('R2DBG_MAX_CLIP_BYTES')     ?: 262144), // 256 KiB
+        ];
+    }
+}
+
+if (!function_exists('r2dbg_make_clip')) {
+    /** @return array{0:string,1:bool} base64 e se foi truncado */
+    function r2dbg_make_clip(string $text, int $maxBytes): array
+    {
+        if ($text === '') return ['', false];
+        if (strlen($text) > $maxBytes) {
+            $cut = substr($text, 0, $maxBytes - 64) . "\n… [TRUNCADO para clipboard]";
+            return [base64_encode($cut), true];
+        }
+        return [base64_encode($text), false];
+    }
+}
+
+if (!function_exists('r2dbg_dump_text_limited')) {
+    function r2dbg_dump_text_limited(mixed $value, array $cfg): string
+    {
+        $preview = r2dbg_limit_value($value, $cfg['maxDepth'], $cfg['maxItems'], $cfg['maxString']);
+
+        if (class_exists(\Symfony\Component\VarDumper\Cloner\VarCloner::class)
+            && class_exists(\Symfony\Component\VarDumper\Dumper\CliDumper::class)) {
+
+            $cloner = new \Symfony\Component\VarDumper\Cloner\VarCloner();
+            if (method_exists($cloner, 'setMaxItems'))  { $cloner->setMaxItems($cfg['maxItems']); }
+            if (method_exists($cloner, 'setMaxString')) { $cloner->setMaxString($cfg['maxString']); }
+
+            $dumper = new \Symfony\Component\VarDumper\Dumper\CliDumper();
+            $dumper->setColors(false);
+
+            ob_start();
+            $dumper->dump($cloner->cloneVar($preview));
+            $out = (string)ob_get_clean();
+
+            if (strlen($out) > $cfg['maxClipboardBytes']) {
+                $out = substr($out, 0, $cfg['maxClipboardBytes'] - 64) . "\n… [TRUNCADO]";
+            }
+            return $out;
+        }
+
+        $text = print_r($preview, true);
+        if (strlen($text) > $cfg['maxClipboardBytes']) {
+            $text = substr($text, 0, $cfg['maxClipboardBytes'] - 64) . "\n… [TRUNCADO]";
+        }
+        return $text;
+    }
+}
+
+if (!function_exists('r2dbg_dump_html_limited')) {
+    function r2dbg_dump_html_limited(mixed $value, array $cfg): string
+    {
+        $preview = r2dbg_limit_value($value, $cfg['maxDepth'], $cfg['maxItems'], $cfg['maxString']);
+
+        if (class_exists(\Symfony\Component\VarDumper\Cloner\VarCloner::class)
+            && class_exists(\Symfony\Component\VarDumper\Dumper\HtmlDumper::class)) {
+
+            $cloner = new \Symfony\Component\VarDumper\Cloner\VarCloner();
+            if (method_exists($cloner, 'setMaxItems'))  { $cloner->setMaxItems($cfg['maxItems']); }
+            if (method_exists($cloner, 'setMaxString')) { $cloner->setMaxString($cfg['maxString']); }
+
+            $dumper = new \Symfony\Component\VarDumper\Dumper\HtmlDumper();
+            if (method_exists($dumper, 'setStyles')) { $dumper->setStyles([]); }
+
+            ob_start();
+            $dumper->dump($cloner->cloneVar($preview));
+            return (string)ob_get_clean();
+        }
+
+        $safe = htmlspecialchars(print_r($preview, true), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return "<pre class=\"r2dbg__pre\">{$safe}</pre>";
+    }
+}
+
+if (!function_exists('json_safe_limited')) {
+    function json_safe_limited(mixed $value, array $cfg): string
+    {
+        $preview = r2dbg_limit_value($value, $cfg['maxDepth'], $cfg['maxItems'], $cfg['maxString']);
+        $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE;
+        try {
+            $json = json_encode($preview, $flags);
+            return is_string($json) ? $json : '"<não serializável em JSON>"';
+        } catch (Throwable) {
+            return '"<não serializável em JSON>"';
+        }
+    }
+}
+
+if (!function_exists('r2dbg_limit_value')) {
+    /**
+     * Reduz estruturas: limita profundidade, itens e string size. Evita recursão.
+     */
+    function r2dbg_limit_value(mixed $v, int $depth, int $maxItems, int $maxString, \SplObjectStorage $seen = null)
+    {
+        if ($depth <= 0) {
+            if (is_object($v)) return sprintf('object(%s){…}', get_class($v));
+            if (is_array($v))  return 'array{…}';
+            if (is_string($v)) return (strlen($v) > $maxString) ? (substr($v, 0, $maxString) . '…') : $v;
+            return $v;
+        }
+
+        if (is_string($v)) {
+            return (strlen($v) > $maxString) ? (substr($v, 0, $maxString) . '…') : $v;
+        }
+
+        if (is_array($v)) {
+            $out = [];
+            $i = 0;
+            foreach ($v as $k => $item) {
+                if ($i++ >= $maxItems) {
+                    $out['…'] = sprintf('(+%d itens)', max(0, count($v) - ($i - 1)));
+                    break;
+                }
+                $out[$k] = r2dbg_limit_value($item, $depth - 1, $maxItems, $maxString, $seen);
+            }
+            return $out;
+        }
+
+        if (is_object($v)) {
+            if ($seen === null) $seen = new \SplObjectStorage();
+            if ($seen->contains($v)) {
+                return sprintf('object(%s)#%s (recursivo)', get_class($v), spl_object_id($v));
+            }
+            $seen->attach($v);
+
+            if ($v instanceof \JsonSerializable) {
+                $data = $v->jsonSerialize();
+            } elseif ($v instanceof \Traversable) {
+                $data = [];
+                $i = 0;
+                foreach ($v as $k => $item) {
+                    if ($i++ >= $maxItems) { $data['…'] = '(+mais itens)'; break; }
+                    $data[$k] = $item;
+                }
+            } else {
+                $data = get_object_vars($v);
+            }
+
+            $out = ['__class__' => get_class($v)];
+            $i = 0;
+            foreach ($data as $k => $item) {
+                if ($i++ >= $maxItems) { $out['…'] = '(+mais props)'; break; }
+                $out[$k] = r2dbg_limit_value($item, $depth - 1, $maxItems, $maxString, $seen);
+            }
+            return $out;
+        }
+
+        if (is_resource($v)) {
+            return sprintf('resource(%s)', get_resource_type($v));
+        }
+
+        return $v;
+    }
+}
+
+/* --------------- helpers gerais --------------- */
+
+if (!function_exists('format_bytes')) {
+    function format_bytes(int $bytes): string
+    {
+        $units = ['B','KB','MB','GB','TB'];
+        $i = 0;
+        while ($bytes >= 1024 && $i < count($units) - 1) { $bytes /= 1024; $i++; }
+        return number_format($bytes, $i === 0 ? 0 : 2, ',', '.') . ' ' . $units[$i];
+    }
+}
+
+if (!function_exists('r2dbg_starts_with')) {
+    function r2dbg_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+if (!function_exists('shorten_path')) {
+    function shorten_path(?string $path): string
+    {
+        if (!$path) return 'unknown';
+        $bases = array_filter([
+            $_SERVER['DOCUMENT_ROOT'] ?? null,
+            getcwd() ?: null,
+            dirname(__DIR__, 2),
+            dirname(__FILE__, 3),
+        ]);
+        foreach ($bases as $base) {
+            $base = rtrim((string)$base, DIRECTORY_SEPARATOR);
+            if ($base && r2dbg_starts_with($path, $base)) {
+                return ltrim(substr($path, strlen($base)), DIRECTORY_SEPARATOR);
+            }
+        }
+        return $path;
+    }
+}
+
+/* --------------- stack & origem --------------- */
+
+if (!function_exists('r2dbg_clean_trace')) {
+    function r2dbg_clean_trace(array $bt): array
+    {
+        $out = [];
+        foreach ($bt as $f) {
+            if (!empty($f['file'])) {
+                $scheme = parse_url($f['file'], PHP_URL_SCHEME);
+                if ($scheme === null || $scheme === 'file') {
+                    $rp = @realpath($f['file']);
+                    if ($rp) $f['file'] = $rp;
+                }
+            }
+            $out[] = $f;
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('r2dbg_pick_origin')) {
+    /**
+     * Pega a “origem” conforme o modo:
+     *  - 'self'     => frame 0 (o próprio debug)
+     *  - 'deepest'  => o frame mais profundo com file/line (entrada)
+     *  - default    => primeiro frame com file/line após o frame 0
+     *
+     * @return array{0:array,1:array} [$frameEscolhido, $btDesdeEle]
+     */
+    function r2dbg_pick_origin(string $mode, array $btAll): array
+    {
+        $n = count($btAll);
+        if ($n === 0) return [['file'=>'unknown','line'=>0], []];
+
+        $pickSelf = fn() => [$btAll[0], $btAll];
+
+        $pickDeepest = function() use ($btAll, $n) {
+            for ($i = $n - 1; $i >= 0; $i--) {
+                if (!empty($btAll[$i]['file']) && !empty($btAll[$i]['line'])) {
+                    return [$btAll[$i], array_slice($btAll, $i)];
+                }
+            }
+            return [$btAll[$n-1], [$btAll[$n-1]]];
+        };
+
+        if ($mode === 'self') return $pickSelf();
+        if ($mode === 'deepest') return $pickDeepest();
+
+        for ($i = 1; $i < $n; $i++) {
+            if (!empty($btAll[$i]['file']) && !empty($btAll[$i]['line'])) {
+                return [$btAll[$i], array_slice($btAll, $i)];
+            }
+        }
+        return $pickSelf();
+    }
+}
+
+/* --------------- leitura de fonte (trecho) --------------- */
+
+if (!function_exists('r2dbg_resolve_path')) {
+    function r2dbg_resolve_path(?string $file): ?string
+    {
+        if (!$file) return null;
+
+        if (@is_file($file) && @is_readable($file)) return $file;
+
+        $scheme = parse_url($file, PHP_URL_SCHEME);
+        if ($scheme === null || $scheme === 'file') {
+            $rp = @realpath($file);
+            if ($rp && @is_readable($rp)) return $rp;
+
+            $inc = @stream_resolve_include_path($file);
+            if ($inc && @is_readable($inc)) return $inc;
+        }
+
+        if ($scheme === 'phar' && @is_readable($file)) return $file;
+
+        $alt = getcwd() ? (getcwd() . DIRECTORY_SEPARATOR . ltrim($file, DIRECTORY_SEPARATOR)) : null;
+        if ($alt && @is_readable($alt)) return $alt;
+
+        return null;
+    }
+}
+
+if (!function_exists('read_source_snippet')) {
+    /**
+     * Retorna [html, raw] de um trecho do arquivo em torno de $line.
+     * Mostra $radius linhas acima e $radius abaixo (se existirem).
+     * @return array{0:string,1:string}
+     */
+    function read_source_snippet(string $file, int $line, int $radius = 6): array
+    {
+        $resolved = r2dbg_resolve_path($file);
+
+        if (!$resolved || $line <= 0 || !is_readable($resolved)) {
+            $fileSafe = htmlspecialchars((string)$file, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $msg = '<div class="r2dbg__muted">Fonte indisponível: <code>'.$fileSafe.'</code></div>';
+            return [$msg, "Fonte indisponível: {$file}\n"];
+        }
+
+        $start = max(1, $line - $radius);
+        $end   = $line + $radius;
+
+        $f = new SplFileObject($resolved, 'r');
+        $f->setFlags(SplFileObject::DROP_NEW_LINE);
+        $f->seek($start - 1); // Spl é 0-based
+
+        $html = '<table class="r2dbg__code">';
+        $raw  = '';
+
+        $currentLineNumber = $start;
+        while (!$f->eof() && $currentLineNumber <= $end) {
+            $ln    = (string)$f->current();
+            $lnEsc = htmlspecialchars($ln, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+            $active = $currentLineNumber === $line ? ' class="is-hl"' : '';
+            $html .= "<tr{$active}><td class=\"r2dbg__gutter\">{$currentLineNumber}</td><td class=\"r2dbg__line\"><code>{$lnEsc}</code></td></tr>";
+            $raw  .= sprintf("%-5d %s\n", $currentLineNumber, $ln);
+
+            $currentLineNumber++;
+            $f->next();
+        }
+
+        $html .= '</table>';
+        return [$html, $raw];
+    }
+}
+
+/* --------------- renderizadores de stack --------------- */
+
+if (!function_exists('format_stack_text')) {
+    function format_stack_text(array $bt): string
+    {
+        $out = [];
+        foreach ($bt as $i => $f) {
+            $file = shorten_path($f['file'] ?? 'unknown');
+            $line = $f['line'] ?? 0;
+            $call = ($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? '');
+            $call = $call ?: 'global';
+            $out[] = sprintf('#%02d %s:%s -> %s()', $i, $file, (string)$line, $call);
+        }
+        return implode(PHP_EOL, $out);
+    }
+}
+
+if (!function_exists('format_stack_breadcrumb')) {
+    function format_stack_breadcrumb(array $bt): string
+    {
+        $items = [];
+        foreach ($bt as $f) {
+            $file = htmlspecialchars(shorten_path($f['file'] ?? 'unknown'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $line = (int)($f['line'] ?? 0);
+            $items[] = "<span class=\"r2dbg__crumb\"><code>{$file}</code>:<b>{$line}</b></span>";
+        }
+        return implode('<span class="r2dbg__sep"> ➜ </span>', $items);
+    }
+}
+
+if (!function_exists('format_stack_html')) {
+    function format_stack_html(array $bt): string
+    {
+        $html = '';
+        foreach ($bt as $i => $f) {
+            $file = htmlspecialchars(shorten_path($f['file'] ?? 'unknown'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $line = (int)($f['line'] ?? 0);
+            $func = htmlspecialchars(($f['class'] ?? '') . ($f['type'] ?? '') . ($f['function'] ?? 'global'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $html .= "<li class=\"r2dbg__frame\">
+                <div class=\"r2dbg__frame-head\">
+                    <span class=\"r2dbg__badge\">#{$i}</span>
+                    <span class=\"r2dbg__func\">{$func}()</span>
+                    <span class=\"r2dbg__file\"><code>{$file}</code>:<b>{$line}</b></span>
+                </div>
+            </li>";
+        }
+        return $html;
+    }
+}
+
+/* --------------- assets (CSS/JS) --------------- */
+
+if (!function_exists('inject_r2_debug_assets_once')) {
+    function inject_r2_debug_assets_once(): void
+    {
+        static $injected = false;
+        if ($injected) return;
+        $injected = true;
+
+        echo <<<HTML
+<style id="r2dbg-style">
+  .r2dbg{margin:1rem 0;border:1px solid #262a35;border-radius:14px;background:#0e1117;color:#e6e6e6;font:14px ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Noto Sans",Arial;}
+  .r2dbg *{box-sizing:border-box}
+  .r2dbg__header{position:sticky;top:0;z-index:1;display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:center;padding:.8rem 1rem;border-bottom:1px solid #1b2130;background:linear-gradient(180deg,#121726,#0f1420)}
+  .r2dbg__title{display:flex;gap:.5rem;align-items:baseline}
+  .r2dbg__label{opacity:.9;font-weight:600;color:#b9c2ff}
+  .r2dbg__meta{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;opacity:.9}
+  .r2dbg__crumbs code{background:#121825;padding:.15rem .35rem;border-radius:6px}
+  .r2dbg__actions{display:flex;gap:.5rem}
+  .r2dbg__btn{border:1px solid #2a3246;background:#121827;padding:.45rem .75rem;border-radius:10px;color:#d7dfff;cursor:pointer;transition:.15s}
+  .r2dbg__btn[disabled]{opacity:.6;cursor:not-allowed}
+  .r2dbg__btn:hover{background:#162037}
+  .r2dbg__tabs{display:flex;gap:.25rem;padding:.5rem .5rem .25rem;border-bottom:1px solid #1b2130;position:sticky;top:3.1rem;background:#0e1117;z-index:1}
+  .r2dbg__tab{appearance:none;border:1px solid transparent;background:transparent;color:#ddd;padding:.45rem .75rem;border-radius:10px;cursor:pointer}
+  .r2dbg__tab.is-active{border-color:#2a3246;background:#121827;color:#fff}
+  .r2dbg__panes{padding:.75rem 1rem}
+  .r2dbg__pane{display:none}
+  .r2dbg__pane.is-active{display:block}
+  .r2dbg__dump{overflow:auto}
+  .r2dbg__pre{white-space:pre-wrap;line-height:1.35;background:#0b0f16;padding:.75rem;border:1px solid #1b2130;border-radius:10px;color:#fff}
+  .r2dbg__breadcrumb{display:flex;flex-wrap:wrap;gap:.35rem .5rem;margin-bottom:.75rem}
+  .r2dbg__crumb code{background:#121825;padding:.15rem .35rem;border-radius:6px}
+  .r2dbg__sep{opacity:.6}
+  .r2dbg__stack{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
+  .r2dbg__frame{padding:.5rem .6rem;border:1px solid #1b2130;border-radius:10px;background:#0b0f16}
+  .r2dbg__badge{display:inline-block;min-width:1.6rem;text-align:center;border:1px solid #2a3246;border-radius:999px;padding:.1rem .45rem;margin-right:.45rem;background:#121827;color:#a9b4ff}
+  .r2dbg__func{font-weight:600;margin-right:.5rem}
+  .r2dbg__file code{background:#121825;padding:.15rem .35rem;border-radius:6px}
+  .r2dbg__code{width:100%;border-collapse:separate;border-spacing:0;background:#0b0f16;border:1px solid #1b2130;border-radius:10px;overflow:hidden;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+  .r2dbg__code td{vertical-align:top}
+  .r2dbg__gutter{width:4.2rem;text-align:right;padding:.25rem .6rem;color:rgba(255,255,255,.65);background:#0f1420;border-right:1px solid #1b2130}
+  .r2dbg__line{padding:.25rem .6rem}
+  .r2dbg__code tr.is-hl .r2dbg__line{background:#151e2e}
+  .r2dbg__muted{opacity:.7}
+  .r2dbg__line code { color:#fff; }
+</style>
+<script id="r2dbg-script">
+(function(){
+  if (window.__r2dbgLoaded) return; window.__r2dbgLoaded = true;
+
+  function copyBase64(b64, btn){
+    try{
+      var text = atob(b64 || '');
+      if (!text) { feedback(btn,true); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function(){ feedback(btn); }, function(){ fallback(text, btn); });
+      } else { fallback(text, btn); }
+    }catch(e){ console.error('r2dbg copy error', e); }
+  }
+  function fallback(text, btn){
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    feedback(btn);
+  }
+  function feedback(btn, disabled){
+    if (!btn) return;
+    if (disabled) { btn.disabled = true; return; }
+    var old = btn.textContent;
+    btn.textContent = 'Copiado ✓'; btn.disabled = true;
+    setTimeout(function(){ btn.textContent = old; btn.disabled = false; }, 1200);
+  }
+
+  // Tabs (garante "Variável" como default)
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-r2clip]');
+    if (btn){ e.preventDefault(); copyBase64(btn.getAttribute('data-r2clip'), btn); return; }
+
+    var tab = e.target.closest('.r2dbg__tab');
+    if (tab){
+      var root = tab.closest('[data-r2dbg]');
+      var name = tab.getAttribute('data-tab');
+      root.querySelectorAll('.r2dbg__tab').forEach(function(t){
+        var active = t === tab;
+        t.classList.toggle('is-active', active);
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      root.querySelectorAll('.r2dbg__pane').forEach(function(p){
+        p.classList.toggle('is-active', p.getAttribute('data-pane') === name);
+      });
+    }
+  }, true);
+})();
+</script>
+HTML;
+    }
+}
+
 
 
 
@@ -825,3 +1377,4 @@ https://codepen.io/bee-3/details/OJjyRwx
 
 
 </urlset>
+
