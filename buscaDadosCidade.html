@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Localizador — Estável & Neutro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+
+<style>
+  :root{
+    /* Paleta neutra */
+    --bg:#ffffff;
+    --bg-soft:#f6f8fb;
+    --card:#ffffff;
+    --border:#e6ebf2;
+    --text:#1f2430;
+    --muted:#6b7382;
+    --accent:#3b6ef6;
+    --ring:rgba(59,110,246,.18);
+  }
+  *{ box-sizing:border-box }
+  body{
+    margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    background:var(--bg-soft); color:var(--text);
+  }
+
+  /* ===== Navbar ===== */
+  .navbar{
+    position:sticky; top:0; z-index:1000;
+    background:#fff; border-bottom:1px solid var(--border);
+  }
+  .navwrap{
+    display:flex; align-items:center; gap:16px;
+    width:min(96vw,1500px); margin:auto; padding:10px 12px;
+  }
+  .brand{ display:flex; align-items:center; gap:8px; font-weight:800 }
+  .brand svg{ flex:0 0 auto }
+  .navlinks{ margin-left:auto; display:flex; gap:14px; flex-wrap:wrap }
+  .navlinks a{ color:#2f3b57; text-decoration:none; padding:8px 10px; border-radius:8px }
+  .navlinks a:hover{ background:#f2f6ff }
+
+  /* ===== Layout com anúncios laterais ===== */
+  .page{
+    display:grid; gap:16px;
+    grid-template-columns: 180px minmax(320px,1100px) 180px;
+    padding:16px; margin-inline:auto; width:min(96vw,1500px);
+  }
+  @media (max-width:1100px){ .page{ grid-template-columns:1fr } .sidebar{display:none} }
+  .sidebar{ position:relative }
+  .ad-sticky{ position:sticky; top:96px; display:flex; flex-direction:column; gap:16px }
+  .ad-slot{
+    width:100%; min-height:600px; border:1px dashed var(--border);
+    background:#fff; border-radius:12px; display:grid; place-items:center; padding:10px; position:relative;
+  }
+  .ad-label{
+    position:absolute; top:8px; left:8px; font-size:.75rem; color:#4a5a78;
+    background:#eef3ff; border:1px solid var(--border); padding:2px 6px; border-radius:999px;
+  }
+
+  /* ===== App ===== */
+  .app{
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    box-shadow:0 10px 30px rgba(16,25,40,.06); overflow:hidden;
+  }
+  header.app-head{
+    padding:14px 16px; border-bottom:1px solid var(--border); background:#fff;
+    display:flex; align-items:center; gap:10px;
+  }
+  .title{ font-weight:800 }
+  .badge{ margin-left:auto; font-size:.85rem; color:#445; background:#eef3ff; border:1px solid var(--border); padding:.2rem .5rem; border-radius:999px }
+
+  /* ===== Toolbar em 2 linhas ===== */
+  .toolbar{
+    display:flex; flex-direction:column; gap:10px;
+    padding:14px 16px; border-bottom:1px solid var(--border); background:var(--bg);
+  }
+  .toolbar-top{
+    display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
+  }
+  .toolbar-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end }
+  .toolbar-bottom{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+  @media (max-width:760px){ .toolbar-top{ grid-template-columns:1fr } .toolbar-actions{ justify-content:flex-start } }
+
+  .input-wrap{ position:relative; min-width:260px }
+  .input{
+    width:100%; padding:12px 44px; border:1px solid var(--border); border-radius:12px; background:#fff;
+    transition:border .2s, box-shadow .2s;
+  }
+  .input:focus{ border-color:#c9d6ff; box-shadow:0 0 0 6px var(--ring); outline:none }
+  .icon{ position:absolute; top:50%; transform:translateY(-50%); width:22px; height:22px; opacity:.7 }
+  .icon.l{ left:12px } .icon.r{ right:12px; cursor:pointer }
+
+  .select,.checkbox,.btn,.number{
+    border-radius:10px; border:1px solid var(--border); background:#fff; padding:10px 12px; font-weight:600;
+  }
+  .btn{ background:linear-gradient(180deg,#5b86ff,var(--accent)); color:#fff; border:0; box-shadow:0 6px 18px rgba(59,110,246,.2); cursor:pointer }
+  .btn.ghost{ background:#fff; color:#2f3b57; border:1px solid var(--border); box-shadow:none }
+  .btn:active{ transform:translateY(1px) }
+  .number{ width:110px }
+
+  .suggest{
+    position:absolute; top:calc(100% + 8px); left:0; right:0; z-index:20;
+    background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.08); overflow:hidden; max-height:330px; overflow-y:auto;
+  }
+  .suggest[hidden]{ display:none }
+  .suggest-item{ padding:10px 12px; display:flex; gap:10px; border-bottom:1px dashed #edf1f8; cursor:pointer }
+  .suggest-item:last-child{ border-bottom:0 }
+  .suggest-item:hover, .suggest-item[aria-selected="true"]{ background:#f2f6ff }
+  .suggest-type{ font-size:.75rem; color:#3a5fd0; font-weight:800; background:#eef3ff; border:1px solid var(--border); padding:.15rem .5rem; border-radius:999px }
+  .muted{ color:var(--muted) }
+
+  .content{ display:grid; gap:16px; grid-template-columns:1.2fr .8fr; padding:16px }
+  @media (max-width:900px){ .content{ grid-template-columns:1fr } }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px }
+  .card h3{ margin:6px 0 8px 0; font-size:1.05rem }
+
+  .list{ padding-left:1rem; margin:0 } .list li{ margin:.25rem 0 }
+  .kv{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px }
+  .pill{ background:#f6f8ff; border:1px solid var(--border); padding:6px 10px; border-radius:999px; font-size:.9rem }
+
+  .map-wrap{ height:420px; border:1px solid var(--border); border-radius:12px; overflow:hidden; position:relative }
+  #map{ height:100%; width:100% }
+  .map-hint{
+    position:absolute; bottom:8px; left:8px; background:#fff; border:1px solid var(--border);
+    font-size:.8rem; padding:6px 8px; border-radius:8px; color:#2f3b57;
+  }
+
+  .table{ width:100%; border-collapse:collapse; font-size:.95rem }
+  .table th,.table td{ border-bottom:1px dashed #edf1f8; padding:8px }
+  .table tr:hover{ background:#f8faff }
+  .right{ text-align:right }
+
+  .toast{
+    position:fixed; right:16px; bottom:16px; background:#1f7a4d; color:#eafff3;
+    padding:10px 12px; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.16);
+    transform:translateY(12px); opacity:0; pointer-events:none; transition:all .2s; z-index:1200;
+  }
+  .toast.show{ transform:translateY(0); opacity:1 }
+
+  .loading{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; }
+  .loading.show{ display:flex }
+  .spinner{ width:20px; height:20px; border-radius:50%; border:3px solid #e6ebf2; border-top-color:var(--accent); animation:spin .8s linear infinite }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+
+  .list-mini{ list-style:none; padding:0; margin:0 }
+  .list-mini li{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed #edf1f8 }
+  .list-mini li:last-child{ border-bottom:0 }
+  .link{ color:#2f3b57; text-decoration:underline; cursor:pointer }
+
+  /* ===== Modal ===== */
+  .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1100; }
+  .modal.show{ display:flex }
+  .modal::before{ content:""; position:absolute; inset:0; background:rgba(0,0,0,.25) }
+  .modal-card{ position:relative; z-index:1; background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; width:min(92vw,720px); max-height:80vh; overflow:auto }
+
+  /* ===== Footer ===== */
+  footer{
+    margin:24px auto; width:min(96vw,1500px);
+    color:#2f3b57;
+  }
+  .foot-grid{
+    background:#fff; border:1px solid var(--border); border-radius:16px; padding:18px;
+    display:grid; grid-template-columns:2fr 1fr 1fr; gap:16px;
+  }
+  @media (max-width:900px){ .foot-grid{ grid-template-columns:1fr } }
+  .foot-col h4{ margin:0 0 8px 0 }
+  .foot-note{ font-size:.85rem; color:#6b7382; margin-top:8px }
+
+  /* ===== Back to top ===== */
+  .to-top{
+    position:fixed; right:16px; bottom:72px; z-index:1200;
+    background:#fff; border:1px solid var(--border); padding:8px 10px; border-radius:999px; cursor:pointer;
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Navbar ===== -->
+<nav class="navbar">
+  <div class="navwrap">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#3b6ef6" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <span>Localizador</span>
+    </div>
+    <div class="navlinks">
+      <a href="#buscar">Buscar</a>
+      <a href="#favoritos">Favoritos</a>
+      <a href="#historico">Histórico</a>
+      <a href="#sobre">Sobre</a>
+      <a href="#" id="openHelp">Ajuda</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- Ads esquerda -->
+  <aside class="sidebar">
+    <div class="ad-sticky">
+      <div class="ad-slot">
+        <span class="ad-label">Publicidade</span>
+        <div style="width:160px;height:600px;display:grid;place-items:center;border-radius:8px;background:#f7f9ff;">
+          160×600 (placeholder)
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- App central -->
+  <main class="app" id="app">
+    <header class="app-head" id="buscar">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#3b6ef6" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <div class="title">Localizador de Cidades</div>
+      <span class="badge">OpenStreetMap / Nominatim</span>
+    </header>
+
+    <!-- ===== Toolbar (duas linhas) ===== -->
+    <section class="toolbar">
+      <!-- Linha de cima -->
+      <div class="toolbar-top">
+        <div class="input-wrap">
+          <svg class="icon l" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" fill="none" stroke="#3b6ef6" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="cidade" class="input" type="text" placeholder="Ex.: Itapema, SC" autocomplete="off" />
+          <svg id="clearBtn" class="icon r" viewBox="0 0 24 24" title="Limpar"><path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <div id="suggest" class="suggest" hidden></div>
+          <div id="loading" class="loading"><div class="spinner"></div></div>
+        </div>
+        <div class="toolbar-actions">
+          <button id="buscarBtn" class="btn" type="button">Buscar</button>
+          <button id="btnPrimeiro" class="btn ghost" type="button">Aplicar 1º</button>
+          <button id="btnMyLoc" class="btn ghost" type="button" title="Minha localização">Minha loc.</button>
+          <button id="btnPermalink" class="btn ghost" type="button" title="Copiar link da busca">Permalink</button>
+          <button id="btnShare" class="btn ghost" type="button" title="Compartilhar">Compartilhar</button>
+          <button id="btnEmbed" class="btn ghost" type="button" title="Gerar embed">Embed</button>
+        </div>
+      </div>
+
+      <!-- Linha de baixo: filtros -->
+      <div class="toolbar-bottom">
+        <label class="checkbox"><input type="checkbox" id="onlyBR" checked /> Somente BR</label>
+        <label class="checkbox"><input type="checkbox" id="useBounds" /> Usar limites do mapa</label>
+        <button id="btnArea" class="btn ghost" type="button" title="Ativar seleção por área (Shift + arraste)">Selecionar área</button>
+        <button id="btnLimparArea" class="btn ghost" type="button">Limpar área</button>
+
+        <select id="uf" class="select">
+          <option value="">UF (opcional)</option>
+        </select>
+
+        <label class="checkbox" title="Filtrar por importância (0 a 1)">
+          Importância mín.
+          <input id="minImportance" class="number" type="number" step="0.01" min="0" max="1" value="0" />
+        </label>
+
+        <select id="classFilter" class="select">
+          <option value="">Classe: Todas</option>
+        </select>
+        <select id="typeFilter" class="select">
+          <option value="">Tipo: Todos</option>
+        </select>
+
+        <select id="orderBy" class="select" title="Ordenar resultados">
+          <option value="importance">Ordenar: Importância</option>
+          <option value="alpha">Ordenar: A-Z</option>
+          <option value="distance">Ordenar: Distância (centro do mapa)</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="content">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Detalhes & Hierarquia</h3>
+          <span class="hint">Clique com o botão direito no mapa para reverter</span>
+        </div>
+        <div id="resultado" class="muted">Digite a cidade e veja as sugestões, ou clique em "Buscar".</div>
+        <div class="kv" id="pills" style="margin-top:8px"></div>
+        <div class="kv" style="margin-top:8px">
+          <a id="linkOsm" class="btn ghost" href="#" target="_blank" rel="noopener">OpenStreetMap</a>
+          <a id="linkGmaps" class="btn ghost" href="#" target="_blank" rel="noopener">Google Maps</a>
+          <a id="linkWaze"  class="btn ghost" href="#" target="_blank" rel="noopener">Waze</a>
+          <button id="copyBtn" class="btn ghost" type="button">Copiar coords</button>
+          <button id="copyAddrBtn" class="btn ghost" type="button">Copiar endereço</button>
+          <button id="copyJsonBtn" class="btn ghost" type="button">Copiar JSON</button>
+          <button id="copyWKTBtn" class="btn ghost" type="button">Copiar WKT</button>
+          <button id="copyGeohashBtn" class="btn ghost" type="button">Copiar Geohash</button>
+          <button id="routeBtn" class="btn ghost" type="button">Traçar rota (GMaps)</button>
+          <button id="favBtn" class="btn ghost" type="button">Salvar favorito</button>
+        </div>
+
+        <details style="margin-top:8px">
+          <summary>API Playground (URL da busca)</summary>
+          <code id="apiUrl" style="display:block;margin-top:6px;white-space:break-spaces;color:#2f3b57"></code>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3>Mapa</h3>
+        <div class="map-wrap">
+          <div id="map"></div>
+          <div class="map-hint">Clique p/ selecionar • Clique direito: endereço • Shift+Arraste: área • <span id="measureHint" class="muted">Medição: off</span></div>
+        </div>
+        <div class="kv" style="margin-top:8px">
+          <button id="measureBtn" class="btn ghost" type="button">Medir distância</button>
+          <button id="measureClearBtn" class="btn ghost" type="button">Limpar medição</button>
+          <button id="clearMarkersBtn" class="btn ghost" type="button">Limpar marcadores</button>
+        </div>
+      </div>
+
+      <div class="card" id="favoritos">
+        <h3>Favoritos</h3>
+        <ul id="favList" class="list-mini"></ul>
+        <div class="kv" style="margin-top:8px">
+          <button id="clearFavs" class="btn ghost" type="button">Limpar favoritos</button>
+        </div>
+      </div>
+
+      <div class="card" id="historico">
+        <h3>Histórico</h3>
+        <ul id="histList" class="list-mini"></ul>
+        <div class="kv" style="margin-top:8px">
+          <button id="clearHist" class="btn ghost" type="button">Limpar histórico</button>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:1 / -1">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h3>Resultados</h3>
+            <span id="resCount" class="hint">0 itens</span>
+          </div>
+          <div class="kv">
+            <button id="expJSON" class="btn ghost" type="button">Exportar JSON</button>
+            <button id="expCSV"  class="btn ghost" type="button">Exportar CSV</button>
+            <button id="expGEO"  class="btn ghost" type="button">Exportar GeoJSON</button>
+            <button id="expKML"  class="btn ghost" type="button">Exportar KML</button>
+            <button id="clearResults" class="btn ghost" type="button">Limpar resultados</button>
+          </div>
+        </div>
+        <table class="table" id="tableResults">
+          <thead><tr><th>Nome</th><th>Tipo</th><th>Classe</th><th>Estado</th><th>País</th><th class="right">Ação</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Ads direita -->
+  <aside class="sidebar">
+    <div class="ad-sticky">
+      <div class="ad-slot">
+        <span class="ad-label">Publicidade</span>
+        <div style="width:160px;height:600px;display:grid;place-items:center;border-radius:8px;background:#f7f9ff;">
+          160×600 (placeholder)
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ===== Footer ===== -->
+<footer id="sobre">
+  <div class="foot-grid">
+    <div class="foot-col">
+      <h4>Sobre</h4>
+      <p>Localizador leve e estável utilizando <strong>Nominatim</strong> (OpenStreetMap) e <strong>Leaflet</strong>. Ideal para pesquisas rápidas, exportação e compartilhamento.</p>
+      <p class="foot-note">Respeite as políticas de uso do Nominatim: evite requisições excessivas e inclua um e-mail válido.</p>
+    </div>
+    <div class="foot-col">
+      <h4>Recursos</h4>
+      <ul class="list">
+        <li>Busca + Sugestões</li>
+        <li>Filtros (UF, classe, tipo, importância)</li>
+        <li>Área por box zoom / limites do mapa</li>
+        <li>Exportações (JSON, CSV, GeoJSON, KML)</li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <h4>Atribuições</h4>
+      <ul class="list">
+        <li>© Colaboradores do OpenStreetMap</li>
+        <li>Leaflet Map Library</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-note">Versão 1.3 • Feito com ♥ em UI neutra | Contato: <a href="mailto:contato@example.com">contato@example.com</a></div>
+</footer>
+
+<button id="toTop" class="to-top" title="Topo">↑</button>
+<div id="toast" class="toast">OK!</div>
+
+<!-- ===== Modal Ajuda ===== -->
+<div id="helpModal" class="modal" aria-hidden="true">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>Ajuda & Atalhos</h3>
+      <button id="closeHelp" class="btn ghost">Fechar</button>
+    </div>
+    <ul class="list" style="margin-top:8px">
+      <li><strong>Enter</strong> aplica o 1º resultado da busca.</li>
+      <li><strong>Setas ↑/↓</strong> navegam nas sugestões.</li>
+      <li><strong>Shift+Arraste</strong> desenha uma área (box zoom) e ativa “Usar limites do mapa”.</li>
+      <li><strong>Clique</strong> no mapa posiciona o marcador.</li>
+      <li><strong>Clique direito</strong> executa geocodificação reversa.</li>
+      <li><strong>Duplo clique</strong> finaliza a medição de distância.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ======= Config & helpers ======= */
+const NOMINATIM = 'https://nominatim.openstreetmap.org/';
+const EMAIL = 'SEU_EMAIL_AQUI'; // substitua
+const STORAGE = { hist:'loc_hist_v1', favs:'loc_favs_v1', opts:'loc_opts_v1' };
+
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>Array.from(el.querySelectorAll(s));
+const toast = (m='OK!')=>{ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400); };
+const debounce = (fn,ms=320)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); } };
+
+const ORDEM = ['hamlet','village','town','city','municipality','county','state_district','state','region','country','continent'];
+const TRAD = {hamlet:'Povoado',village:'Vila',town:'Cidade pequena',city:'Cidade',municipality:'Município',county:'Condado',state_district:'Distrito do estado',state:'Estado',region:'Região',country:'País',continent:'Continente'};
+const statesBR = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+
+let map, marker, resultMarkers = [];
+let measureActive = false, measureLine = null, measurePoints = [];
+let currentItems = [];     // resultados crus da API
+let viewItems = [];        // pós-filtro/ordenação
+let currentPlace = null;
+let userCenter = null;     // centro do mapa (para ordenar por distância)
+let boxAreaActive = false; // flag visual para seleção por área
+
+/* ===== Navbar helpers ===== */
+$('#toTop').onclick = ()=> window.scrollTo({top:0, behavior:'smooth'});
+$('#openHelp').onclick = ()=> $('#helpModal').classList.add('show');
+$('#closeHelp').onclick = ()=> $('#helpModal').classList.remove('show');
+$('#helpModal').addEventListener('click', (e)=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
+
+/* ===== UF select ===== */
+(function initUF(){
+  const uf = $('#uf');
+  uf.innerHTML = '<option value="">UF (opcional)</option>' + statesBR.map(u=>`<option value="${u}">${u}</option>`).join('');
+})();
+
+/* ===== Persistência de opções ===== */
+(function loadOpts(){
+  try{
+    const o = JSON.parse(localStorage.getItem(STORAGE.opts) || '{}');
+    if(typeof o.onlyBR === 'boolean') $('#onlyBR').checked = o.onlyBR;
+    if(typeof o.useBounds === 'boolean') $('#useBounds').checked = o.useBounds;
+    if(o.uf) $('#uf').value = o.uf;
+    if(typeof o.minImportance === 'number') $('#minImportance').value = o.minImportance;
+    if(o.orderBy) $('#orderBy').value = o.orderBy;
+  }catch{}
+})();
+function saveOpts(){
+  const o = {
+    onlyBR: $('#onlyBR').checked,
+    useBounds: $('#useBounds').checked,
+    uf: $('#uf').value,
+    minImportance: Number($('#minImportance').value)||0,
+    orderBy: $('#orderBy').value
+  };
+  localStorage.setItem(STORAGE.opts, JSON.stringify(o));
+}
+
+/* ===== Map ===== */
+function ensureMap(){
+  if(map) return;
+  map = L.map('map', { zoomControl:true, boxZoom:true }).setView([-14.2350,-51.9253], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+  L.control.scale().addTo(map);
+
+  map.on('moveend', ()=>{ userCenter = map.getCenter(); if($('#orderBy').value==='distance'){ applyClientFilters(); } });
+  map.on('click', (ev)=> setMap(ev.latlng.lat, ev.latlng.lng, map.getZoom()));
+
+  map.on('contextmenu', async (ev)=>{
+    try{
+      const p = await reverseGeocode(ev.latlng.lat, ev.latlng.lng);
+      if(p){ renderPlace(p); addResultMarker(p, true); toast('Endereço obtido pelo mapa'); }
+    }catch{ toast('Falha na reversa'); }
+  });
+
+  // Box zoom => ativa área e “usar limites”
+  map.on('boxzoomend', (ev)=>{
+    $('#useBounds').checked = true; saveOpts();
+    boxAreaActive = true; toast('Área aplicada nos filtros');
+  });
+
+  map.on('dblclick', ()=>finishMeasure());
+  map.on('mousemove', ev=>{
+    if(measureActive && measurePoints.length){
+      const temp = [...measurePoints, ev.latlng];
+      const dist = polylineDist(temp);
+      $('#measureHint').textContent = `Medição: ${dist.toFixed(2)} km (duplo clique p/ finalizar)`;
+    }
+  });
+
+  userCenter = map.getCenter();
+}
+ensureMap();
+
+function setMap(lat,lon, zoom=12){
+  const la = Number(lat), lo = Number(lon);
+  map.setView([la,lo], zoom);
+  if(!marker) marker = L.marker([la,lo]).addTo(map);
+  else marker.setLatLng([la,lo]);
+}
+function addResultMarker(p, open=false){
+  const {lat, lon} = p;
+  const m = L.marker([Number(lat), Number(lon)]).addTo(map);
+  m.bindPopup(`<strong>${(p.display_name||'Local')}</strong><br><button data-popup-apply class="link">Aplicar</button>`, {closeButton:true});
+  m.on('popupopen', ()=>{
+    const btn = document.querySelector('[data-popup-apply]');
+    if(btn){ btn.onclick = ()=>{ renderPlace(p); m.closePopup(); }; }
+  });
+  resultMarkers.push(m);
+  if(open) m.openPopup();
+}
+function clearResultMarkers(){ resultMarkers.forEach(m=>map.removeLayer(m)); resultMarkers=[]; }
+
+/* ===== Measure ===== */
+function toggleMeasure(){
+  measureActive = !measureActive;
+  $('#measureHint').textContent = `Medição: ${measureActive? 'on' : 'off'}`;
+  if(measureActive){
+    if(measureLine) { map.removeLayer(measureLine); measureLine = null; }
+    measurePoints = [];
+    toast('Medição ativada: clique para marcar; duplo clique para finalizar.');
+    map.on('click', onMeasureClick, { once:false });
+  }else{ finishMeasure(); }
+}
+function onMeasureClick(ev){
+  if(!measureActive) return;
+  measurePoints.push(ev.latlng);
+  if(!measureLine) measureLine = L.polyline(measurePoints, {color:'#3b6ef6'}).addTo(map);
+  else measureLine.setLatLngs(measurePoints);
+}
+function finishMeasure(){
+  if(!measureActive) return;
+  measureActive = false;
+  const dist = polylineDist(measurePoints);
+  $('#measureHint').textContent = 'Medição: off';
+  toast(dist>0 ? `Distância total: ${dist.toFixed(2)} km` : 'Medição cancelada');
+}
+function clearMeasure(){
+  measureActive=false; measurePoints=[];
+  if(measureLine){ map.removeLayer(measureLine); measureLine=null; }
+  $('#measureHint').textContent = 'Medição: off';
+}
+function haversine(a,b){
+  const R=6371, toRad=d=>d*Math.PI/180;
+  const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lng-a.lng);
+  const s1=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s1));
+}
+function polylineDist(points){ if(points.length<2) return 0; let d=0; for(let i=1;i<points.length;i++) d+=haversine(points[i-1], points[i]); return d; }
+
+/* ===== Nominatim ===== */
+function buildSearchURL(text, opts={}){
+  const { onlyBR=true, uf='', useBounds=false, minImportance=0 } = opts;
+  let q = text.trim();
+  if(uf) q += `, ${uf}`;
+  if(onlyBR) q += ', Brasil';
+  const params = new URLSearchParams({
+    q, format:'jsonv2', addressdetails:'1', limit:'10', 'accept-language':'pt-BR', email: EMAIL||''
+  });
+  if(onlyBR) params.set('countrycodes','br');
+  if(useBounds && map){
+    const b = map.getBounds();
+    params.set('viewbox', `${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`);
+    params.set('bounded', '1');
+  }
+  return `${NOMINATIM}search?${params.toString()}`;
+}
+async function searchPlaces(text, opts={}){
+  const url = buildSearchURL(text, opts);
+  $('#apiUrl').textContent = url;
+  const res = await fetch(url, { headers:{ 'Accept':'application/json' } });
+  if(res.status===429){
+    await new Promise(r=>setTimeout(r, 900));
+    const retry = await fetch(url, { headers:{'Accept':'application/json'} });
+    if(!retry.ok) throw new Error('429 — Muitas solicitações. Tente novamente.');
+    return (await retry.json());
+  }
+  if(!res.ok) throw new Error(`Erro ${res.status} ao buscar`);
+  return res.json();
+}
+async function reverseGeocode(lat, lon){
+  const params = new URLSearchParams({ lat, lon, format:'jsonv2', addressdetails:'1', 'accept-language':'pt-BR', email: EMAIL||'' });
+  const res = await fetch(`${NOMINATIM}reverse?${params.toString()}`);
+  if(!res.ok) throw new Error('Erro na reversa');
+  const j = await res.json();
+  return { lat:j.lat, lon:j.lon, address:j.address, display_name:j.display_name, type:j.type, class:j.class, importance:j.importance, osm_id:j.osm_id, boundingbox:j.boundingbox };
+}
+
+/* ===== Render ===== */
+function buildHierarchy(address){
+  const items=[];
+  ORDEM.forEach(k=>{ if(address?.[k]) items.push(`<li><strong>${TRAD[k]||k}:</strong> ${address[k]}</li>`); });
+  if(address?.postcode) items.push(`<li><strong>CEP:</strong> ${address.postcode}</li>`);
+  if(address?.road) items.push(`<li><strong>Logradouro:</strong> ${address.road}</li>`);
+  return `<ul class="list">${items.join('') || '<li class="muted">Sem dados hierárquicos</li>'}</ul>`;
+}
+function buildPills(p){
+  const { lat, lon, type, class:clazz, importance, boundingbox } = p;
+  const pills = [
+    ['Tipo', type || '—'],
+    ['Classe', clazz || '—'],
+    ['Lat', Number(lat).toFixed(6)],
+    ['Lon', Number(lon).toFixed(6)],
+    ['Importância', importance ? Number(importance).toFixed(3) : '—'],
+    ['BBox', boundingbox ? boundingbox.map(n=>Number(n).toFixed(3)).join(' • ') : ( $('#useBounds').checked ? 'filtro ativo' : '—')],
+    ['Área', boxAreaActive ? 'selecionada' : '—'],
+  ];
+  return pills.map(([k,v])=>`<span class="pill"><strong>${k}:</strong> ${v}</span>`).join('');
+}
+function setLinks(lat,lon){
+  const la = Number(lat).toFixed(6), lo = Number(lon).toFixed(6);
+  $('#linkOsm').href   = `https://www.openstreetmap.org/?mlat=${la}&mlon=${lo}#map=14/${la}/${lo}`;
+  $('#linkGmaps').href = `https://www.google.com/maps?q=${la},${lo}`;
+  $('#linkWaze').href  = `https://waze.com/ul?ll=${la},${lo}&navigate=yes`;
+}
+function renderPlace(p){
+  currentPlace = p;
+  $('#resultado').innerHTML = buildHierarchy(p.address||{});
+  $('#pills').innerHTML = buildPills(p);
+  setMap(p.lat, p.lon);
+  setLinks(p.lat, p.lon);
+}
+function renderTable(items){
+  const tbody = $('#tableResults tbody');
+  $('#resCount').textContent = `${items.length} itens`;
+  if(!items?.length){ tbody.innerHTML=''; clearResultMarkers(); return; }
+  tbody.innerHTML = items.map((p,i)=>{
+    const a=p.address||{};
+    const nome = p.display_name.split(',').slice(0,2).join(', ');
+    return `<tr data-row="${i}">
+      <td>${nome}</td>
+      <td>${p.type || '—'}</td>
+      <td>${p.class || '—'}</td>
+      <td>${a.state || a.state_district || '—'}</td>
+      <td>${a.country || '—'}</td>
+      <td class="right"><button class="btn ghost" data-apply="${i}">Aplicar</button></td>
+    </tr>`;
+  }).join('');
+  clearResultMarkers();
+  items.forEach(p=> addResultMarker(p,false));
+}
+
+/* ===== Filtros/ordenação no cliente ===== */
+function populateDynamicFilters(items){
+  const classes=[...new Set(items.map(x=>x.class).filter(Boolean))].sort();
+  const types=[...new Set(items.map(x=>x.type).filter(Boolean))].sort();
+  $('#classFilter').innerHTML = `<option value="">Classe: Todas</option>` + classes.map(c=>`<option>${c}</option>`).join('');
+  $('#typeFilter').innerHTML  = `<option value="">Tipo: Todos</option>` + types.map(t=>`<option>${t}</option>`).join('');
+}
+function distanceToCenter(p, center){
+  const a={lat:Number(p.lat), lng:Number(p.lon)};
+  return haversine(a, {lat:center.lat, lng:center.lng});
+}
+function applyClientFilters(){
+  const cls = $('#classFilter').value.trim();
+  const typ = $('#typeFilter').value.trim();
+  const ord = $('#orderBy').value;
+
+  viewItems = currentItems
+    .filter(x => ($('#minImportance').value ? (Number(x.importance||0) >= Number($('#minImportance').value)) : true))
+    .filter(x => (cls ? x.class===cls : true))
+    .filter(x => (typ ? x.type===typ : true));
+
+  if(ord==='alpha'){
+    viewItems.sort((a,b)=> (a.display_name||'').localeCompare(b.display_name||''));
+  }else if(ord==='distance' && userCenter){
+    viewItems.sort((a,b)=> distanceToCenter(a,userCenter) - distanceToCenter(b,userCenter));
+  }else{
+    viewItems.sort((a,b)=> (Number(b.importance||0) - Number(a.importance||0)));
+  }
+
+  renderTable(viewItems);
+}
+
+/* ===== Histórico & Favoritos ===== */
+function pushHistory(term){
+  if(!term) return;
+  let list=[]; try{ list = JSON.parse(localStorage.getItem(STORAGE.hist)||'[]'); }catch{}
+  list.unshift({ term, ts: Date.now() });
+  list = list.filter((v,i,a)=> a.findIndex(x=>x.term===v.term)===i).slice(0,12);
+  localStorage.setItem(STORAGE.hist, JSON.stringify(list));
+  drawHistory();
+}
+function drawHistory(){
+  const el = $('#histList');
+  let list=[]; try{ list = JSON.parse(localStorage.getItem(STORAGE.hist)||'[]'); }catch{}
+  el.innerHTML = list.map(h=>`<li><span>${h.term}</span><span class="link" data-hist="${encodeURIComponent(h.term)}">aplicar</span></li>`).join('') || '<li class="muted">Sem histórico</li>';
+}
+function saveFav(place){
+  if(!place) return;
+  let list=[]; try{ list = JSON.parse(localStorage.getItem(STORAGE.favs)||'[]'); }catch{}
+  if(list.some(f=> (f.osm_id||f.display_name)===(place.osm_id||place.display_name))){ toast('Já nos favoritos'); return; }
+  list.unshift({ display_name: place.display_name, lat: place.lat, lon: place.lon, osm_id: place.osm_id||null, type: place.type||null, class: place.class||null, address: place.address||null });
+  list = list.slice(0,20);
+  localStorage.setItem(STORAGE.favs, JSON.stringify(list));
+  drawFavs(); toast('Favorito salvo');
+}
+function drawFavs(){
+  const el = $('#favList');
+  let list=[]; try{ list = JSON.parse(localStorage.getItem(STORAGE.favs)||'[]'); }catch{}
+  el.innerHTML = list.map((f,i)=>`
+    <li>
+      <span>${(f.display_name||'Favorito').split(',').slice(0,2).join(', ')}</span>
+      <span>
+        <a class="link" data-fav-apply="${i}">aplicar</a> ·
+        <a class="link" data-fav-del="${i}">remover</a>
+      </span>
+    </li>`).join('') || '<li class="muted">Sem favoritos</li>';
+}
+
+/* ===== Export ===== */
+function download(filename, content, mime='application/octet-stream'){
+  const blob = new Blob([content], {type:mime});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function toCSV(items){
+  const rows = items.map(p=>{
+    const a=p.address||{};
+    return { nome:(p.display_name||'').replaceAll('"',''), tipo:p.type||'', classe:p.class||'', lat:p.lat, lon:p.lon, estado:a.state||a.state_district||'', pais:a.country||'', cep:a.postcode||'' };
+  });
+  const head = Object.keys(rows[0]||{});
+  return [head.join(','), ...rows.map(r=> head.map(k=> `"${(r[k]??'')+''}"`).join(','))].join('\n');
+}
+function toGeoJSON(items){
+  return JSON.stringify({ type:'FeatureCollection', features: items.map(p=>({
+    type:'Feature', properties:{ display_name:p.display_name, type:p.type, class:p.class, importance:p.importance, address:p.address||{} },
+    geometry:{ type:'Point', coordinates:[ Number(p.lon), Number(p.lat) ] }
+  })) }, null, 2);
+}
+function toKML(items){
+  const placemarks = items.map(p=>{
+    const name=(p.display_name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<Placemark><name>${name}</name><Point><coordinates>${p.lon},${p.lat},0</coordinates></Point></Placemark>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>${placemarks}</Document></kml>`;
+}
+
+/* ===== Permalink / Share / Embed ===== */
+function buildPermalink(){
+  const params = new URLSearchParams();
+  const q = $('#cidade').value.trim();
+  if(q) params.set('q', q);
+  params.set('br', $('#onlyBR').checked?'1':'0');
+  if($('#useBounds').checked) params.set('vb','1');
+  const uf = $('#uf').value; if(uf) params.set('uf', uf);
+  const mi = $('#minImportance').value; if(mi && Number(mi)>0) params.set('min', mi);
+  const cls = $('#classFilter').value; if(cls) params.set('cls', cls);
+  const typ = $('#typeFilter').value; if(typ) params.set('typ', typ);
+  params.set('ord', $('#orderBy').value);
+  const c = map.getCenter(); params.set('lat', c.lat.toFixed(6)); params.set('lon', c.lng.toFixed(6)); params.set('z', map.getZoom());
+  return `${location.origin}${location.pathname}?${params.toString()}`;
+}
+function applyPermalink(){
+  const sp = new URLSearchParams(location.search);
+  const q = sp.get('q')||''; if(q) $('#cidade').value = q;
+  const uf = sp.get('uf')||''; if(uf) $('#uf').value = uf;
+  if(sp.get('br')==='0') $('#onlyBR').checked=false;
+  if(sp.get('vb')==='1') { $('#useBounds').checked = true; boxAreaActive=true; }
+  const min = parseFloat(sp.get('min')||'0')||0; if(min>0) $('#minImportance').value = min;
+  const cls = sp.get('cls')||''; if(cls) $('#classFilter').value = cls;
+  const typ = sp.get('typ')||''; if(typ) $('#typeFilter').value = typ;
+  const ord = sp.get('ord')||''; if(ord) $('#orderBy').value = ord;
+  const lat = parseFloat(sp.get('lat')||''); const lon = parseFloat(sp.get('lon')||''); const z = parseInt(sp.get('z')||'',10);
+  if(!Number.isNaN(lat) && !Number.isNaN(lon) && z){ setMap(lat,lon,z); }
+  if(q){ performSearch(true); }
+}
+
+/* ===== Utils (geohash & WKT) ===== */
+function geohashEncode(lat, lon, precision=7){
+  let latInt=[-90,90], lonInt=[-180,180], hash='', bit=0, ch=0, even=true;
+  while(hash.length<precision){
+    let mid;
+    if(even){ mid=(lonInt[0]+lonInt[1])/2; if(lon>mid){ ch|=1<<(4-bit); lonInt[0]=mid; } else lonInt[1]=mid; }
+    else{ mid=(latInt[0]+latInt[1])/2; if(lat>mid){ ch|=1<<(4-bit); latInt[0]=mid; } else latInt[1]=mid; }
+    even=!even;
+    if(bit<4) bit++; else{ hash+=BASE32[ch]; bit=0; ch=0; }
+  }
+  return hash;
+}
+function wktPoint(lat,lon){ return `POINT(${Number(lon).toFixed(6)} ${Number(lat).toFixed(6)})`; }
+
+/* ===== Ações ===== */
+async function performSearch(applyFirst=false){
+  const text = $('#cidade').value || '';
+  if(text.trim().length < 2){ toast('Digite pelo menos 2 caracteres'); return; }
+  const opts = {
+    onlyBR: $('#onlyBR').checked,
+    uf: $('#uf').value,
+    useBounds: $('#useBounds').checked,
+    minImportance: Number($('#minImportance').value)||0
+  };
+  saveOpts();
+
+  $('#loading').classList.add('show');
+  try{
+    const items = await searchPlaces(text, opts);
+    currentItems = items;
+    populateDynamicFilters(items);
+    applyClientFilters();
+    if(items.length === 0){
+      $('#resultado').innerHTML = `<span class="muted">Nenhum resultado para <strong>${text}</strong>. Tente "Cidade, UF".</span>`;
+      $('#suggest').hidden = true;
+      return;
+    }
+    renderSuggestions(items);
+    if(applyFirst){ renderPlace(items[0]); $('#suggest').hidden = true; }
+    pushHistory(text + (opts.uf?`, ${opts.uf}`:'') + (opts.onlyBR?', BR':'')); boxAreaActive = $('#useBounds').checked;
+  }catch(e){
+    $('#resultado').innerHTML = `<span class="muted">Erro: ${e.message}</span>`; $('#suggest').hidden = true;
+  }finally{
+    $('#loading').classList.remove('show');
+  }
+}
+function renderSuggestions(list){
+  const s = $('#suggest');
+  if(!list?.length){ s.hidden=true; s.innerHTML=''; return; }
+  s.innerHTML = list.map((p,i)=>{
+    const a=p.address||{};
+    const nome = p.display_name?.split(',').slice(0,2).join(', ') || p.display_name;
+    const tipo = p.type || p.addresstype || 'local';
+    const det = [a.state||a.state_district, a.country].filter(Boolean).join(' • ');
+    return `<div class="suggest-item" data-idx="${i}" role="option" aria-selected="${i===0?'true':'false'}">
+      <span class="suggest-type">${(tipo||'local')}</span>
+      <div><div>${nome}</div><div class="muted">${det}</div></div>
+    </div>`;
+  }).join('');
+  s.hidden=false;
+}
+
+/* ===== Eventos ===== */
+const debouncedSuggest = debounce(()=>performSearch(false), 350);
+$('#cidade').addEventListener('input', debouncedSuggest);
+$('#buscarBtn').addEventListener('click', ()=>performSearch(false));
+$('#btnPrimeiro').addEventListener('click', ()=>performSearch(true));
+$('#clearBtn').addEventListener('click', ()=>{
+  $('#cidade').value=''; $('#suggest').hidden=true;
+  $('#resultado').textContent='Digite a cidade e veja as sugestões, ou clique em "Buscar".';
+  currentItems=[]; viewItems=[]; currentPlace=null; clearResultMarkers(); renderTable([]);
+});
+$('#clearResults').addEventListener('click', ()=>{ currentItems=[]; viewItems=[]; clearResultMarkers(); renderTable([]); });
+
+document.addEventListener('click', (e)=>{
+  const sug = e.target.closest('.suggest-item');
+  if(sug){ const idx = Number(sug.dataset.idx); renderPlace(currentItems[idx]); $('#suggest').hidden = true; }
+  if(e.target.matches('[data-apply]')){ const idx = Number(e.target.getAttribute('data-apply')); renderPlace(viewItems[idx]); }
+  if(e.target.matches('[data-fav-apply]')){ const i = Number(e.target.getAttribute('data-fav-apply')); const list = JSON.parse(localStorage.getItem(STORAGE.favs)||'[]'); const p = list[i]; if(p){ renderPlace(p); } }
+  if(e.target.matches('[data-fav-del]')){ const i = Number(e.target.getAttribute('data-fav-del')); const list = JSON.parse(localStorage.getItem(STORAGE.favs)||'[]'); list.splice(i,1); localStorage.setItem(STORAGE.favs, JSON.stringify(list)); drawFavs(); }
+  if(e.target.matches('[data-hist]')){ const term = decodeURIComponent(e.target.getAttribute('data-hist')); $('#cidade').value = term; performSearch(true); }
+});
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && document.activeElement === $('#cidade')){ e.preventDefault(); performSearch(true); }
+  const s = $('#suggest'); const items = $$('.suggest-item', s); if(s.hidden || !items.length) return;
+  const idxSel = items.findIndex(it=>it.getAttribute('aria-selected')==='true');
+  const sel = i => items.forEach((it,ix)=>it.setAttribute('aria-selected', ix===i?'true':'false'));
+  if(e.key==='ArrowDown'){ e.preventDefault(); sel(Math.min((idxSel+1+items.length)%items.length, items.length-1)); }
+  if(e.key==='ArrowUp'){ e.preventDefault(); sel((idxSel-1+items.length)%items.length); }
+  if(e.key==='Escape'){ s.hidden = true; }
+  if(e.key==='Enter'){ e.preventDefault(); const i=Math.max(idxSel,0); items[i]?.click(); }
+});
+
+/* Copias e rotas */
+$('#copyBtn').addEventListener('click', async ()=>{
+  if(!currentPlace) return;
+  const la = Number(currentPlace.lat).toFixed(6), lo = Number(currentPlace.lon).toFixed(6);
+  try{ await navigator.clipboard.writeText(`${la},${lo}`); toast('Coordenadas copiadas!'); }catch{ toast('Não foi possível copiar'); }
+});
+$('#copyAddrBtn').addEventListener('click', async ()=>{ if(!currentPlace) return; try{ await navigator.clipboard.writeText(currentPlace.display_name||''); toast('Endereço copiado!'); }catch{ toast('Falhou copiar'); } });
+$('#copyJsonBtn').addEventListener('click', async ()=>{ if(!currentPlace) return; try{ await navigator.clipboard.writeText(JSON.stringify(currentPlace, null, 2)); toast('JSON copiado!'); }catch{ toast('Falhou copiar'); } });
+$('#copyWKTBtn').addEventListener('click', async ()=>{ if(!currentPlace) return; const txt=wktPoint(Number(currentPlace.lat),Number(currentPlace.lon)); try{ await navigator.clipboard.writeText(txt); toast('WKT copiado!'); }catch{ toast(txt); } });
+$('#copyGeohashBtn').addEventListener('click', async ()=>{ if(!currentPlace) return; const gh=geohashEncode(Number(currentPlace.lat),Number(currentPlace.lon)); try{ await navigator.clipboard.writeText(gh); toast('Geohash copiado!'); }catch{ toast(gh); } });
+$('#routeBtn').addEventListener('click', ()=>{ if(!currentPlace) return; const la=Number(currentPlace.lat).toFixed(6), lo=Number(currentPlace.lon).toFixed(6); window.open(`https://www.google.com/maps/dir/?api=1&destination=${la},${lo}`,'_blank'); });
+
+/* Fav/Hist */
+$('#favBtn').addEventListener('click', ()=> saveFav(currentPlace));
+$('#clearFavs').addEventListener('click', ()=>{ localStorage.removeItem(STORAGE.favs); drawFavs(); });
+$('#clearHist').addEventListener('click', ()=>{ localStorage.removeItem(STORAGE.hist); drawHistory(); });
+
+/* Export */
+$('#expJSON').addEventListener('click', ()=>{ if(!viewItems.length) return toast('Sem resultados'); download('resultados.json', JSON.stringify(viewItems, null, 2), 'application/json'); });
+$('#expCSV').addEventListener('click', ()=>{ if(!viewItems.length) return toast('Sem resultados'); download('resultados.csv', toCSV(viewItems), 'text/csv'); });
+$('#expGEO').addEventListener('click', ()=>{ if(!viewItems.length) return toast('Sem resultados'); download('resultados.geojson', toGeoJSON(viewItems), 'application/geo+json'); });
+$('#expKML').addEventListener('click', ()=>{ if(!viewItems.length) return toast('Sem resultados'); download('resultados.kml', toKML(viewItems), 'application/vnd.google-earth.kml+xml'); });
+
+/* Share & Embed */
+$('#btnPermalink').addEventListener('click', async ()=>{ const url=buildPermalink(); try{ await navigator.clipboard.writeText(url); toast('Link copiado'); }catch{ toast(url); } });
+$('#btnShare').addEventListener('click', async ()=>{
+  const url=buildPermalink();
+  if(navigator.share){ try{ await navigator.share({ title:'Localizador', text:'Confira este local/resultado:', url }); }catch{} }
+  else{ try{ await navigator.clipboard.writeText(url); toast('Link copiado'); }catch{ toast(url); } }
+});
+$('#btnEmbed').addEventListener('click', async ()=>{
+  const url=buildPermalink();
+  const code=`<iframe src="${url}" width="100%" height="600" style="border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+  try{ await navigator.clipboard.writeText(code); toast('Código de embed copiado'); }catch{ toast('Copie o código do console'); console.log(code); }
+});
+
+/* Área / limites */
+$('#btnArea').addEventListener('click', ()=>{ toast('Use Shift+Arraste no mapa para desenhar a área.'); });
+$('#btnLimparArea').addEventListener('click', ()=>{ $('#useBounds').checked=false; boxAreaActive=false; saveOpts(); toast('Área limpa'); });
+
+/* Geolocalização */
+$('#btnMyLoc').addEventListener('click', ()=>{
+  if(!navigator.geolocation){ return toast('Geolocalização indisponível'); }
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const {latitude:lat, longitude:lon} = pos.coords;
+    setMap(lat,lon,14);
+    try{ const p = await reverseGeocode(lat,lon); if(p){ renderPlace(p); toast('Localização atual aplicada'); } }catch{}
+  }, ()=> toast('Permissão negada ou indisponível'));
+});
+
+/* Filtros/ordenação reativos */
+$('#useBounds').addEventListener('change', ()=>{ boxAreaActive = $('#useBounds').checked; saveOpts(); });
+$('#onlyBR').addEventListener('change', saveOpts);
+$('#uf').addEventListener('change', saveOpts);
+$('#minImportance').addEventListener('change', ()=>{ saveOpts(); applyClientFilters(); });
+$('#classFilter').addEventListener('change', applyClientFilters);
+$('#typeFilter').addEventListener('change', applyClientFilters);
+$('#orderBy').addEventListener('change', ()=>{ saveOpts(); applyClientFilters(); });
+
+/* Inicializa listas, mensagem e permalink */
+function init(){
+  ensureMap();
+  drawHistory(); drawFavs();
+  $('#resultado').textContent = 'Digite a cidade e veja as sugestões, ou clique em "Buscar".';
+  applyPermalink();
+}
+init();
+</script>
+</body>
+</html>
